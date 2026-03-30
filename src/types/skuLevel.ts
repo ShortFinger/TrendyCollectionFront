@@ -14,3 +14,8 @@ export interface ActivitySkuLevelItemRequest {
   sortOrder: number
   tierWeight: number
 }
+
+/** PUT `/activities/{activityId}/sku-levels` body (matches backend `ActivitySkuLevelReplaceRequest`) */
+export interface ActivitySkuLevelReplaceRequest {
+  items: ActivitySkuLevelItemRequest[]
+}

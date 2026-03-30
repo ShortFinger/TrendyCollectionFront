@@ -141,6 +141,9 @@
               <template #default><el-tag size="small" type="primary">新建</el-tag></template>
             </el-table-column>
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="等级" width="88">
+              <template #default="{ row }">{{ skuLevelNameForDraftSave(row) }}</template>
+            </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
             </el-table-column>
@@ -156,6 +159,9 @@
             </el-table-column>
             <el-table-column prop="skuCode" label="SKU 编码" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="等级" width="88">
+              <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+            </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
             </el-table-column>
@@ -171,6 +177,9 @@
             </el-table-column>
             <el-table-column prop="sourceSkuCode" label="来源 SKU" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="等级" width="88">
+              <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+            </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
             </el-table-column>
@@ -401,6 +410,7 @@ interface DraftLinkedSku {
   id: string
   skuCode: string
   name: string
+  skuLevelName?: string
   stockQuantity: number
 }
 
@@ -408,6 +418,7 @@ interface DraftCopiedSku {
   sourceSkuId: string
   sourceSkuCode: string
   name: string
+  skuLevelName?: string
   stockQuantity: number
 }
 
@@ -628,6 +639,12 @@ async function refreshSkuLevels() {
   }
 }
 
+function skuLevelNameForDraftSave(row: SkuSaveRequest) {
+  const id = row.skuLevelId
+  if (!id) return '-'
+  return skuLevelOptions.value.find(o => o.id === id)?.name ?? '-'
+}
+
 async function openPrizeDialogForDraft() {
   prizeFormMode.value = 'draft'
   prizeDialogTitle.value = '添加箱内商品'
@@ -706,11 +723,12 @@ function isSkuUnassigned(row: SkuVO) {
   return !row.boxId || String(row.boxId).trim() === ''
 }
 
-function openSkuPicker(ctx: 'edit' | 'draft') {
+async function openSkuPicker(ctx: 'edit' | 'draft') {
   skuPickerContext.value = ctx
   skuPickerQuery.page = 1
   skuPickerQuery.keyword = ''
   skuPickerVisible.value = true
+  await refreshSkuLevels()
   fetchSkuPickerList()
 }
 
@@ -765,6 +783,7 @@ async function confirmHangStock() {
         id: row.id,
         skuCode: row.skuCode,
         name: row.name,
+        skuLevelName: row.skuLevelName,
         stockQuantity: qty,
       })
       ElMessage.success('已加入，保存箱子时将挂入签位')
@@ -773,6 +792,7 @@ async function confirmHangStock() {
         sourceSkuId: row.id,
         sourceSkuCode: row.skuCode,
         name: row.name,
+        skuLevelName: row.skuLevelName,
         stockQuantity: qty,
       })
       ElMessage.success('已加入，保存箱子时将复制并挂箱')
@@ -901,6 +921,7 @@ async function handleAdd() {
   draftCopiedSkus.value = []
   form.boxStatus = 0
   await refreshNextBoxNumberPreview()
+  await refreshSkuLevels()
   dialogVisible.value = true
 }
 
@@ -910,6 +931,7 @@ async function handleEdit(row: ActivityBoxVO) {
   displayBoxNumber.value = row.boxNumber
   form.boxStatus = row.boxStatus
   dialogVisible.value = true
+  await refreshSkuLevels()
   await fetchBoxSkus()
 }
 

@@ -43,7 +43,7 @@
         </div>
       </template>
       <el-table :data="levelTableRows" stripe size="small" style="width: 100%">
-        <el-table-column label="等级名称" min-width="140">
+        <el-table-column label="名称" min-width="140">
           <template #default="{ row }">
             <el-input v-model="row.name" placeholder="如 SSR" />
           </template>
@@ -53,7 +53,7 @@
             <el-input-number v-model="row.sortOrder" :min="0" :step="1" controls-position="right" style="width: 100%" />
           </template>
         </el-table-column>
-        <el-table-column label="百分比(%)" width="150">
+        <el-table-column label="百分比" width="150">
           <template #default="{ row }">
             <el-input-number v-model="row.tierWeight" :min="0.0001" :max="100" :precision="4" style="width: 100%" />
           </template>
