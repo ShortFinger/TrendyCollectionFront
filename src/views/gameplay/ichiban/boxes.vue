@@ -101,7 +101,7 @@
 
         <el-divider content-position="left">箱内商品</el-divider>
         <p class="box-prize-hint">
-          箱内商品规则：每添加一条对应 <code>activity_box_item</code> 一行；开奖概率与特殊开奖概率固定为 100%，库存（签数）固定为 1。<strong>未绑定</strong>的 SKU 可直接挂入；任意活动内 SKU 可<strong>复制</strong>为新 SKU 后挂箱（源 SKU 不变）。
+          箱内规则：库存（签数）= <code>activity_box_item</code> 行数；减少库存会删除未抽中的签位。开奖概率固定 100%。<strong>未绑定</strong>的 SKU 可挂入；任意 SKU 可<strong>复制</strong>为新 SKU 挂箱（源 SKU 不变）。
         </p>
 
         <template v-if="isEdit">
@@ -112,6 +112,9 @@
           <el-table :data="boxSkus" stripe size="small" v-loading="boxSkusLoading" max-height="280">
             <el-table-column prop="skuCode" label="SKU 编码" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="等级" width="88">
+              <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+            </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
             </el-table-column>
@@ -138,6 +141,9 @@
               <template #default><el-tag size="small" type="primary">新建</el-tag></template>
             </el-table-column>
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="签数" width="72">
+              <template #default="{ row }">{{ row.stockQuantity }}</template>
+            </el-table-column>
             <el-table-column label="操作" width="80" fixed="right">
               <template #default="{ $index }">
                 <el-button link type="danger" size="small" @click="draftPrizes.splice($index, 1)">移除</el-button>
@@ -150,6 +156,9 @@
             </el-table-column>
             <el-table-column prop="skuCode" label="SKU 编码" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="签数" width="72">
+              <template #default="{ row }">{{ row.stockQuantity }}</template>
+            </el-table-column>
             <el-table-column label="操作" width="80" fixed="right">
               <template #default="{ $index }">
                 <el-button link type="danger" size="small" @click="draftLinkedSkus.splice($index, 1)">移除</el-button>
@@ -162,13 +171,16 @@
             </el-table-column>
             <el-table-column prop="sourceSkuCode" label="来源 SKU" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
+            <el-table-column label="签数" width="72">
+              <template #default="{ row }">{{ row.stockQuantity }}</template>
+            </el-table-column>
             <el-table-column label="操作" width="80" fixed="right">
               <template #default="{ $index }">
                 <el-button link type="danger" size="small" @click="draftCopiedSkus.splice($index, 1)">移除</el-button>
               </template>
             </el-table-column>
           </el-table>
-          <el-empty v-if="!draftPrizes.length && !draftLinkedSkus.length && !draftCopiedSkus.length" description="可新建、直接挂入或复制 SKU，保存箱子时一并写入" :image-size="64" />
+          <el-empty v-if="!draftPrizes.length && !draftLinkedSkus.length && !draftCopiedSkus.length" description="可新建、挂入或复制 SKU（均需设置签数），保存箱子时一并写入" :image-size="64" />
         </template>
       </el-form>
       <template #footer>
@@ -184,6 +196,11 @@
         </el-form-item>
         <el-form-item label="奖品名称" prop="name">
           <el-input v-model="prizeForm.name" placeholder="SKU 显示名称" />
+        </el-form-item>
+        <el-form-item v-if="skuLevelOptions.length > 0" label="SKU 等级" prop="skuLevelId">
+          <el-select v-model="prizeForm.skuLevelId" placeholder="请选择" filterable style="width: 100%">
+            <el-option v-for="opt in skuLevelOptions" :key="opt.id" :label="opt.name" :value="opt.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="关联商品" prop="selectedProductIds">
           <div style="width: 100%">
@@ -211,8 +228,12 @@
         <el-form-item label="原价/划线价">
           <el-input-number v-model="prizeForm.originalPrice" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="概率与库存">
-          <span class="box-prize-fixed">开奖概率 100%，特殊开奖概率 100%，库存（签数）1（固定，不可改）</span>
+        <el-form-item label="开奖概率">
+          <span class="box-prize-fixed">固定 100%（与特殊开奖概率均为 100%，由后端写入）</span>
+        </el-form-item>
+        <el-form-item label="库存（签数）" prop="stockQuantity">
+          <el-input-number v-model="prizeForm.stockQuantity" :min="1" :step="1" style="width: 100%" />
+          <span class="box-prize-fixed" style="display: block; margin-top: 6px">对应生成相同条数的 activity_box_item；编辑时可减少库存以删除未抽中签位。</span>
         </el-form-item>
         <el-form-item label="主图 URL">
           <el-input v-model="prizeForm.imageUrl" placeholder="图片链接" />
@@ -300,7 +321,7 @@
     </el-dialog>
 
     <el-dialog v-model="skuPickerVisible" title="SKU 挂箱" width="880px" :close-on-click-modal="false" append-to-body>
-      <p class="sku-picker-hint">未绑定箱子的 SKU 可使用「挂入」；任意行可使用「复制挂箱」生成新 SKU（新编码）并写入本箱，源 SKU 不改动。</p>
+      <p class="sku-picker-hint">「挂入」「复制挂箱」前需填写签数（库存）。未绑定箱子的 SKU 可挂入；复制会生成新 SKU（新编码），源 SKU 不改动。</p>
       <el-form :inline="true" style="margin-bottom: 12px">
         <el-form-item label="关键词">
           <el-input v-model="skuPickerQuery.keyword" placeholder="名称/编码" clearable style="width: 200px" @keyup.enter="handleSkuPickerSearch" />
@@ -313,6 +334,9 @@
       <el-table :data="skuPickerTableRows" stripe v-loading="skuPickerLoading" max-height="400">
         <el-table-column prop="skuCode" label="SKU 编码" width="132" />
         <el-table-column prop="name" label="名称" min-width="120" />
+        <el-table-column label="等级" width="80">
+          <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+        </el-table-column>
         <el-table-column label="绑定箱" width="88">
           <template #default="{ row }">
             <el-tag v-if="isSkuUnassigned(row)" size="small" type="info">未绑定</el-tag>
@@ -324,8 +348,8 @@
         </el-table-column>
         <el-table-column label="操作" width="168" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" :disabled="!isSkuUnassigned(row)" @click="handleLinkSkuPick(row)">挂入</el-button>
-            <el-button type="warning" link size="small" @click="handleCopySkuHang(row)">复制挂箱</el-button>
+            <el-button type="primary" link size="small" :disabled="!isSkuUnassigned(row)" @click="openHangStockDialog('link', row)">挂入</el-button>
+            <el-button type="warning" link size="small" @click="openHangStockDialog('copy', row)">复制挂箱</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -340,6 +364,20 @@
         @size-change="fetchSkuPickerList"
       />
     </el-dialog>
+
+    <el-dialog v-model="hangStockDialogVisible" title="设置签位库存" width="420px" :close-on-click-modal="false" append-to-body>
+      <p v-if="hangTargetRow" class="hang-stock-desc">{{ hangTargetRow.skuCode }} · {{ hangTargetRow.name }}</p>
+      <el-form label-width="110px">
+        <el-form-item label="库存（签数）">
+          <el-input-number v-model="hangStockQty" :min="1" :step="1" style="width: 100%" />
+        </el-form-item>
+      </el-form>
+      <p class="hang-stock-tip">将写入对应条数的 activity_box_item。</p>
+      <template #footer>
+        <el-button @click="hangStockDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmHangStock">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -351,29 +389,32 @@ import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import { getActivity } from '@/api/activity'
 import { listBoxes, createBox, updateBox, deleteBox, linkSkuToBox, copySkuToBox } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
+import { listSkuLevels } from '@/api/skuLevel'
 import { listProducts } from '@/api/product'
 import type { ActivityVO } from '@/types/activity'
 import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
+import type { ActivitySkuLevelVO } from '@/types/skuLevel'
 import type { ProductVO } from '@/types/product'
 
 interface DraftLinkedSku {
   id: string
   skuCode: string
   name: string
+  stockQuantity: number
 }
 
 interface DraftCopiedSku {
   sourceSkuId: string
   sourceSkuCode: string
   name: string
+  stockQuantity: number
 }
 
 const ACT_TYPE_ICHIBAN = 7
-/** 箱内商品固定规则（与后端 activity_box_item 一签一品一致） */
+/** 箱内开奖概率由后端固定为 100% */
 const BOX_SKU_REWARD_PROBABILITY = 100
 const BOX_SKU_SPECIAL_REWARD_PROBABILITY = 100
-const BOX_SKU_STOCK_QUANTITY = 1
 
 const route = useRoute()
 const router = useRouter()
@@ -417,6 +458,11 @@ const skuPickerTotal = ref(0)
 const skuPickerQuery = reactive({ page: 1, size: 10, keyword: '' })
 const skuPickerContext = ref<'edit' | 'draft'>('edit')
 
+const hangStockDialogVisible = ref(false)
+const hangStockQty = ref(1)
+const hangOp = ref<'link' | 'copy'>('link')
+const hangTargetRow = ref<SkuVO | null>(null)
+
 const skuPickerTableRows = computed(() => {
   if (skuPickerContext.value !== 'draft') {
     return skuPickerList.value
@@ -445,13 +491,17 @@ const selectedProductsForPrize = computed(() =>
   prizeForm.selectedProductIds.map(id => allProductsMap.value.get(id)).filter(Boolean) as ProductVO[]
 )
 
+const skuLevelOptions = ref<ActivitySkuLevelVO[]>([])
+
 const prizeForm = reactive({
   skuCode: '',
   name: '',
+  skuLevelId: '' as string,
   selectedProductIds: [] as string[],
   costPrice: undefined as number | undefined,
   recyclePrice: undefined as number | undefined,
   originalPrice: undefined as number | undefined,
+  stockQuantity: 1,
   imageUrl: '',
   specAttributes: '',
   openBoxAnimation: '',
@@ -468,9 +518,16 @@ const productIdsValidator = (_rule: unknown, value: string[], callback: (e?: Err
   else callback()
 }
 
+const prizeSkuLevelValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (skuLevelOptions.value.length > 0 && !value) callback(new Error('请选择 SKU 等级'))
+  else callback()
+}
+
 const prizeFormRules: FormRules = {
   name: [{ required: true, message: '请输入奖品名称', trigger: 'blur' }],
   selectedProductIds: [{ required: true, validator: productIdsValidator, trigger: 'change' }],
+  stockQuantity: [{ required: true, message: '请输入库存（签数）', trigger: 'blur' }],
+  skuLevelId: [{ validator: prizeSkuLevelValidator, trigger: 'change' }],
 }
 
 const boxLimitReached = computed(() => {
@@ -496,7 +553,7 @@ function buildPrizePayload(): SkuSaveRequest {
     originalPrice: prizeForm.originalPrice,
     rewardProbability: BOX_SKU_REWARD_PROBABILITY,
     specialRewardProbability: BOX_SKU_SPECIAL_REWARD_PROBABILITY,
-    stockQuantity: BOX_SKU_STOCK_QUANTITY,
+    stockQuantity: prizeForm.stockQuantity,
     imageUrl: prizeForm.imageUrl || undefined,
     specAttributes: prizeForm.specAttributes || undefined,
     openBoxAnimation: prizeForm.openBoxAnimation || undefined,
@@ -506,6 +563,7 @@ function buildPrizePayload(): SkuSaveRequest {
     rightImage: prizeForm.rightImage || undefined,
     topImage: prizeForm.topImage || undefined,
     bottomImage: prizeForm.bottomImage || undefined,
+    skuLevelId: prizeForm.skuLevelId || undefined,
   }
 }
 
@@ -514,10 +572,12 @@ function resetPrizeForm() {
   Object.assign(prizeForm, {
     skuCode: '',
     name: '',
+    skuLevelId: '',
     selectedProductIds: [],
     costPrice: undefined,
     recyclePrice: undefined,
     originalPrice: undefined,
+    stockQuantity: 1,
     imageUrl: '',
     specAttributes: '',
     openBoxAnimation: '',
@@ -541,10 +601,12 @@ async function rowToPrizeForm(row: SkuVO) {
   Object.assign(prizeForm, {
     skuCode: row.skuCode,
     name: row.name,
+    skuLevelId: row.skuLevelId || '',
     selectedProductIds: ids,
     costPrice: row.costPrice ?? undefined,
     recyclePrice: row.recyclePrice ?? undefined,
     originalPrice: row.originalPrice ?? undefined,
+    stockQuantity: row.stockQuantity ?? 1,
     imageUrl: row.imageUrl || '',
     specAttributes: row.specAttributes || '',
     openBoxAnimation: row.openBoxAnimation || '',
@@ -557,19 +619,30 @@ async function rowToPrizeForm(row: SkuVO) {
   })
 }
 
-function openPrizeDialogForDraft() {
+async function refreshSkuLevels() {
+  try {
+    const { data } = await listSkuLevels(activityId)
+    skuLevelOptions.value = data
+  } catch {
+    skuLevelOptions.value = []
+  }
+}
+
+async function openPrizeDialogForDraft() {
   prizeFormMode.value = 'draft'
   prizeDialogTitle.value = '添加箱内商品'
   prizeSkuEditId.value = ''
   resetPrizeForm()
+  await refreshSkuLevels()
   prizeDialogVisible.value = true
 }
 
-function openPrizeDialogForNewSku() {
+async function openPrizeDialogForNewSku() {
   prizeFormMode.value = 'sku-new'
   prizeDialogTitle.value = '添加箱内商品'
   prizeSkuEditId.value = ''
   resetPrizeForm()
+  await refreshSkuLevels()
   prizeDialogVisible.value = true
 }
 
@@ -578,6 +651,7 @@ async function openPrizeDialogEditSku(row: SkuVO) {
   prizeDialogTitle.value = '编辑箱内商品'
   prizeSkuEditId.value = row.id
   resetPrizeForm()
+  await refreshSkuLevels()
   await rowToPrizeForm(row)
   prizeDialogVisible.value = true
 }
@@ -667,52 +741,56 @@ function handleSkuPickerReset() {
   fetchSkuPickerList()
 }
 
-async function handleLinkSkuPick(row: SkuVO) {
-  if (!isSkuUnassigned(row)) return
-  if (skuPickerContext.value === 'draft') {
-    if (draftLinkedSkus.value.some(d => d.id === row.id)) {
-      ElMessage.warning('已在「直接挂入」列表中')
-      return
-    }
-    draftLinkedSkus.value.push({
-      id: row.id,
-      skuCode: row.skuCode,
-      name: row.name,
-    })
-    ElMessage.success('已加入，保存箱子时将挂入签位')
-    skuPickerVisible.value = false
+function openHangStockDialog(op: 'link' | 'copy', row: SkuVO) {
+  if (op === 'link' && !isSkuUnassigned(row)) return
+  if (op === 'link' && skuPickerContext.value === 'draft' && draftLinkedSkus.value.some(d => d.id === row.id)) {
+    ElMessage.warning('已在「直接挂入」列表中')
     return
   }
-  try {
-    await linkSkuToBox(activityId, editId.value, row.id)
-    ElMessage.success('已挂入本箱')
-    skuPickerVisible.value = false
-    await fetchSkuPickerList()
-    await fetchBoxSkus()
-    await fetchBoxes()
-  } catch {
-    /* 全局拦截已提示 */
-  }
+  hangOp.value = op
+  hangTargetRow.value = row
+  hangStockQty.value = 1
+  hangStockDialogVisible.value = true
 }
 
-async function handleCopySkuHang(row: SkuVO) {
-  if (skuPickerContext.value === 'draft') {
-    draftCopiedSkus.value.push({
-      sourceSkuId: row.id,
-      sourceSkuCode: row.skuCode,
-      name: row.name,
-    })
-    ElMessage.success('已加入，保存箱子时将复制并挂箱')
-    skuPickerVisible.value = false
-    return
-  }
+async function confirmHangStock() {
+  const row = hangTargetRow.value
+  if (!row) return
+  const qty = Math.max(1, Math.floor(Number(hangStockQty.value) || 1))
+  const ctx = skuPickerContext.value
+
   try {
-    await copySkuToBox(activityId, editId.value, row.id)
-    ElMessage.success('已复制并挂入本箱')
+    if (ctx === 'draft' && hangOp.value === 'link') {
+      draftLinkedSkus.value.push({
+        id: row.id,
+        skuCode: row.skuCode,
+        name: row.name,
+        stockQuantity: qty,
+      })
+      ElMessage.success('已加入，保存箱子时将挂入签位')
+    } else if (ctx === 'draft' && hangOp.value === 'copy') {
+      draftCopiedSkus.value.push({
+        sourceSkuId: row.id,
+        sourceSkuCode: row.skuCode,
+        name: row.name,
+        stockQuantity: qty,
+      })
+      ElMessage.success('已加入，保存箱子时将复制并挂箱')
+    } else if (ctx === 'edit' && hangOp.value === 'link') {
+      await linkSkuToBox(activityId, editId.value, row.id, qty)
+      ElMessage.success('已挂入本箱')
+      await fetchSkuPickerList()
+      await fetchBoxSkus()
+      await fetchBoxes()
+    } else if (ctx === 'edit' && hangOp.value === 'copy') {
+      await copySkuToBox(activityId, editId.value, row.id, qty)
+      ElMessage.success('已复制并挂入本箱')
+      await fetchSkuPickerList()
+      await fetchBoxSkus()
+      await fetchBoxes()
+    }
+    hangStockDialogVisible.value = false
     skuPickerVisible.value = false
-    await fetchSkuPickerList()
-    await fetchBoxSkus()
-    await fetchBoxes()
   } catch {
     /* 全局拦截已提示 */
   }
@@ -850,13 +928,16 @@ async function handleSubmit() {
         await createSku(activityId, { ...p, boxId: newBoxId })
       }
       for (const l of draftLinkedSkus.value) {
-        await linkSkuToBox(activityId, newBoxId, l.id)
+        await linkSkuToBox(activityId, newBoxId, l.id, l.stockQuantity)
       }
       for (const c of draftCopiedSkus.value) {
-        await copySkuToBox(activityId, newBoxId, c.sourceSkuId)
+        await copySkuToBox(activityId, newBoxId, c.sourceSkuId, c.stockQuantity)
       }
-      const n = draftPrizes.value.length + draftLinkedSkus.value.length + draftCopiedSkus.value.length
-      ElMessage.success(n ? `创建成功，已写入 ${n} 条箱内签位` : '创建成功')
+      const totalItems =
+        draftPrizes.value.reduce((s, p) => s + (p.stockQuantity ?? 0), 0) +
+        draftLinkedSkus.value.reduce((s, l) => s + l.stockQuantity, 0) +
+        draftCopiedSkus.value.reduce((s, c) => s + c.stockQuantity, 0)
+      ElMessage.success(totalItems ? `创建成功，已写入 ${totalItems} 条签位` : '创建成功')
     }
     dialogVisible.value = false
     draftPrizes.value = []
@@ -877,6 +958,7 @@ async function handleDelete(id: string) {
 onMounted(() => {
   fetchActivity()
   fetchBoxes()
+  refreshSkuLevels()
 })
 </script>
 
@@ -919,5 +1001,16 @@ onMounted(() => {
   margin-top: 6px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+.hang-stock-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+}
+.hang-stock-tip {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 </style>

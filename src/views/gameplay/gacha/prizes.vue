@@ -32,6 +32,44 @@
       </template>
     </el-card>
 
+    <el-card style="margin-bottom: 20px" v-loading="levelCfgLoading">
+      <template #header>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+          <span>SKU 等级（各档百分比合计须为 100%，保存后生效）</span>
+          <div style="display: flex; gap: 8px">
+            <el-button size="small" @click="addLevelRow">增行</el-button>
+            <el-button type="primary" size="small" :loading="levelSaveLoading" @click="saveLevelConfig">保存等级配置</el-button>
+          </div>
+        </div>
+      </template>
+      <el-table :data="levelTableRows" stripe size="small" style="width: 100%">
+        <el-table-column label="等级名称" min-width="140">
+          <template #default="{ row }">
+            <el-input v-model="row.name" placeholder="如 SSR" />
+          </template>
+        </el-table-column>
+        <el-table-column label="排序" width="110">
+          <template #default="{ row }">
+            <el-input-number v-model="row.sortOrder" :min="0" :step="1" controls-position="right" style="width: 100%" />
+          </template>
+        </el-table-column>
+        <el-table-column label="百分比(%)" width="150">
+          <template #default="{ row }">
+            <el-input-number v-model="row.tierWeight" :min="0.0001" :max="100" :precision="4" style="width: 100%" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="72" fixed="right">
+          <template #default="{ $index }">
+            <el-button link type="danger" size="small" @click="removeLevelRow($index)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <p style="margin: 12px 0 0; font-size: 13px; color: var(--el-text-color-secondary)">
+        当前合计：<strong :style="{ color: levelSumOk ? 'var(--el-color-success)' : 'var(--el-color-danger)' }">{{ levelSumDisplay }}%</strong>
+        <span v-if="!levelSumOk && levelTableRows.length > 0">（须等于 100 才能保存）</span>
+      </p>
+    </el-card>
+
     <el-card>
       <template #header>
         <div style="display: flex; align-items: center; justify-content: space-between">
@@ -53,6 +91,9 @@
       <el-table :data="list" stripe style="width: 100%" v-loading="loading">
         <el-table-column prop="skuCode" label="SKU 编码" width="140" />
         <el-table-column prop="name" label="奖品名称" min-width="160" />
+        <el-table-column label="等级" width="100">
+          <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+        </el-table-column>
         <el-table-column label="主图" width="72">
           <template #default="{ row }">
             <el-image v-if="row.imageUrl" :src="row.imageUrl" style="width: 40px; height: 40px" fit="cover" :preview-src-list="[row.imageUrl]" />
@@ -106,6 +147,11 @@
         </el-form-item>
         <el-form-item label="奖品名称" prop="name">
           <el-input v-model="form.name" placeholder="SKU 显示名称" />
+        </el-form-item>
+        <el-form-item v-if="skuLevelOptions.length > 0" label="SKU 等级" prop="skuLevelId">
+          <el-select v-model="form.skuLevelId" placeholder="请选择" filterable style="width: 100%">
+            <el-option v-for="opt in skuLevelOptions" :key="opt.id" :label="opt.name" :value="opt.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="关联商品" prop="selectedProductIds">
           <div style="width: 100%">
@@ -236,9 +282,11 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import { getActivity, updateActivity } from '@/api/activity'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
+import { listSkuLevels, replaceSkuLevels } from '@/api/skuLevel'
 import { listProducts } from '@/api/product'
 import type { ActivityVO } from '@/types/activity'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
+import type { ActivitySkuLevelVO } from '@/types/skuLevel'
 import type { ProductVO } from '@/types/product'
 
 const route = useRoute()
@@ -247,6 +295,20 @@ const activityId = route.params.activityId as string
 
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
+
+const levelCfgLoading = ref(false)
+const levelSaveLoading = ref(false)
+const levelTableRows = ref<{ id?: string; name: string; sortOrder: number; tierWeight: number }[]>([])
+const skuLevelOptions = ref<ActivitySkuLevelVO[]>([])
+
+const levelSumDisplay = computed(() =>
+  levelTableRows.value.reduce((s, r) => s + (Number(r.tierWeight) || 0), 0).toFixed(4)
+)
+const levelSumOk = computed(() => {
+  if (levelTableRows.value.length === 0) return true
+  const sum = levelTableRows.value.reduce((s, r) => s + (Number(r.tierWeight) || 0), 0)
+  return Math.abs(sum - 100) <= 0.0001
+})
 
 const loading = ref(false)
 const list = ref<SkuVO[]>([])
@@ -291,10 +353,16 @@ const form = reactive({
   rightImage: '',
   topImage: '',
   bottomImage: '',
+  skuLevelId: '' as string,
 })
 
 const productIdsValidator = (_rule: any, value: string[], callback: any) => {
   if (!value || value.length === 0) callback(new Error('请选择关联商品'))
+  else callback()
+}
+
+const skuLevelValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (skuLevelOptions.value.length > 0 && !value) callback(new Error('请选择 SKU 等级'))
   else callback()
 }
 
@@ -304,6 +372,7 @@ const formRules: FormRules = {
   rewardProbability: [{ required: true, message: '请输入开奖概率', trigger: 'blur' }],
   specialRewardProbability: [{ required: true, message: '请输入特殊开奖概率', trigger: 'blur' }],
   stockQuantity: [{ required: true, message: '请输入库存', trigger: 'blur' }],
+  skuLevelId: [{ validator: skuLevelValidator, trigger: 'change' }],
 }
 
 function buildPayload(): SkuSaveRequest {
@@ -325,6 +394,7 @@ function buildPayload(): SkuSaveRequest {
     rightImage: form.rightImage || undefined,
     topImage: form.topImage || undefined,
     bottomImage: form.bottomImage || undefined,
+    skuLevelId: form.skuLevelId || undefined,
   }
 }
 
@@ -349,6 +419,7 @@ function resetForm() {
     rightImage: '',
     topImage: '',
     bottomImage: '',
+    skuLevelId: '',
   })
 }
 
@@ -379,6 +450,7 @@ async function rowToForm(row: SkuVO) {
     rightImage: row.rightImage || '',
     topImage: row.topImage || '',
     bottomImage: row.bottomImage || '',
+    skuLevelId: row.skuLevelId || '',
   })
 }
 
@@ -479,6 +551,59 @@ async function recalcProfitRate() {
   }
 }
 
+async function fetchLevelConfig() {
+  levelCfgLoading.value = true
+  try {
+    const { data } = await listSkuLevels(activityId)
+    skuLevelOptions.value = data
+    levelTableRows.value = data.map(d => ({
+      id: d.id,
+      name: d.name,
+      sortOrder: d.sortOrder,
+      tierWeight: typeof d.tierWeight === 'number' ? d.tierWeight : Number(d.tierWeight),
+    }))
+  } finally {
+    levelCfgLoading.value = false
+  }
+}
+
+function addLevelRow() {
+  levelTableRows.value.push({
+    name: '',
+    sortOrder: levelTableRows.value.length + 1,
+    tierWeight: 10,
+  })
+}
+
+function removeLevelRow(index: number) {
+  levelTableRows.value.splice(index, 1)
+}
+
+async function saveLevelConfig() {
+  if (!levelSumOk.value) {
+    ElMessage.error('各档百分比之和须为 100')
+    return
+  }
+  levelSaveLoading.value = true
+  try {
+    const items = levelTableRows.value.map(r => ({
+      id: r.id,
+      name: r.name.trim(),
+      sortOrder: r.sortOrder,
+      tierWeight: Number(r.tierWeight),
+    }))
+    if (items.some(i => !i.name)) {
+      ElMessage.error('请填写等级名称')
+      return
+    }
+    await replaceSkuLevels(activityId, items)
+    ElMessage.success('等级配置已保存')
+    await fetchLevelConfig()
+  } finally {
+    levelSaveLoading.value = false
+  }
+}
+
 async function fetchActivity() {
   actLoading.value = true
   try {
@@ -513,16 +638,18 @@ function handleResetQuery() {
   fetchSkus()
 }
 
-function handleAdd() {
+async function handleAdd() {
   isEdit.value = false
   editId.value = ''
   resetForm()
+  await fetchLevelConfig()
   dialogVisible.value = true
 }
 
 async function handleEdit(row: SkuVO) {
   isEdit.value = true
   editId.value = row.id
+  await fetchLevelConfig()
   await rowToForm(row)
   dialogVisible.value = true
 }
@@ -557,6 +684,7 @@ async function handleDelete(id: string) {
 onMounted(() => {
   fetchActivity()
   fetchSkus()
+  fetchLevelConfig()
 })
 </script>
 
