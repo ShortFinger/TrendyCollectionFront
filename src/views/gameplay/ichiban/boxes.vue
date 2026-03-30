@@ -27,6 +27,57 @@
       </template>
     </el-card>
 
+    <el-card style="margin-bottom: 20px" v-loading="levelCfgLoading">
+      <template #header>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+          <span>奖品等级（各档百分比合计须为 100%，保存后生效）</span>
+          <div style="display: flex; gap: 8px">
+            <el-button size="small" @click="addLevelRow">增行</el-button>
+            <el-button type="primary" size="small" :loading="levelSaveLoading" @click="saveLevelConfig">保存等级配置</el-button>
+          </div>
+        </div>
+      </template>
+      <p class="ichiban-level-tip">
+        说明：一番赏、无限赏玩法下，档位百分比<strong>不参与</strong>开箱随机，仅用于展示与运营；开箱仍按各 SKU 开奖概率及箱内规则。
+      </p>
+      <el-table :data="levelTableRows" stripe size="small" style="width: 100%">
+        <el-table-column label="标题" min-width="120">
+          <template #default="{ row }">
+            <el-input v-model="row.title" placeholder="如 大赏" />
+          </template>
+        </el-table-column>
+        <el-table-column label="图标" min-width="120">
+          <template #default="{ row }">
+            <el-input v-model="row.icon" placeholder="可选 URL" />
+          </template>
+        </el-table-column>
+        <el-table-column label="开盒动画" min-width="120">
+          <template #default="{ row }">
+            <el-input v-model="row.openBoxAnimation" placeholder="可选" />
+          </template>
+        </el-table-column>
+        <el-table-column label="排序" width="110">
+          <template #default="{ row }">
+            <el-input-number v-model="row.sortOrder" :min="0" :step="1" controls-position="right" style="width: 100%" />
+          </template>
+        </el-table-column>
+        <el-table-column label="百分比" width="150">
+          <template #default="{ row }">
+            <el-input-number v-model="row.tierWeight" :min="0.0001" :max="100" :precision="4" style="width: 100%" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="72" fixed="right">
+          <template #default="{ $index }">
+            <el-button link type="danger" size="small" @click="removeLevelRow($index)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <p style="margin: 12px 0 0; font-size: 13px; color: var(--el-text-color-secondary)">
+        当前合计：<strong :style="{ color: levelSumOk ? 'var(--el-color-success)' : 'var(--el-color-danger)' }">{{ levelSumDisplay }}%</strong>
+        <span v-if="!levelSumOk && levelTableRows.length > 0">（须等于 100 才能保存）</span>
+      </p>
+    </el-card>
+
     <el-card>
       <template #header>
         <div style="display: flex; align-items: center; justify-content: space-between">
@@ -113,7 +164,7 @@
             <el-table-column prop="skuCode" label="SKU 编码" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
             <el-table-column label="等级" width="88">
-              <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+              <template #default="{ row }">{{ row.rewardLevelTitle || '-' }}</template>
             </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
@@ -142,7 +193,7 @@
             </el-table-column>
             <el-table-column prop="name" label="名称" min-width="120" />
             <el-table-column label="等级" width="88">
-              <template #default="{ row }">{{ skuLevelNameForDraftSave(row) }}</template>
+              <template #default="{ row }">{{ rewardLevelTitleForDraftSave(row) }}</template>
             </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
@@ -160,7 +211,7 @@
             <el-table-column prop="skuCode" label="SKU 编码" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
             <el-table-column label="等级" width="88">
-              <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+              <template #default="{ row }">{{ row.rewardLevelTitle || '-' }}</template>
             </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
@@ -178,7 +229,7 @@
             <el-table-column prop="sourceSkuCode" label="来源 SKU" width="130" />
             <el-table-column prop="name" label="名称" min-width="120" />
             <el-table-column label="等级" width="88">
-              <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+              <template #default="{ row }">{{ row.rewardLevelTitle || '-' }}</template>
             </el-table-column>
             <el-table-column label="签数" width="72">
               <template #default="{ row }">{{ row.stockQuantity }}</template>
@@ -206,9 +257,9 @@
         <el-form-item label="奖品名称" prop="name">
           <el-input v-model="prizeForm.name" placeholder="SKU 显示名称" />
         </el-form-item>
-        <el-form-item v-if="skuLevelOptions.length > 0" label="SKU 等级" prop="skuLevelId">
-          <el-select v-model="prizeForm.skuLevelId" placeholder="请选择" filterable style="width: 100%">
-            <el-option v-for="opt in skuLevelOptions" :key="opt.id" :label="opt.name" :value="opt.id" />
+        <el-form-item v-if="rewardLevelOptions.length > 0" label="奖品等级" prop="rewardLevelId">
+          <el-select v-model="prizeForm.rewardLevelId" placeholder="请选择" filterable style="width: 100%">
+            <el-option v-for="opt in rewardLevelOptions" :key="opt.id" :label="opt.title" :value="opt.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="关联商品" prop="selectedProductIds">
@@ -344,7 +395,7 @@
         <el-table-column prop="skuCode" label="SKU 编码" width="132" />
         <el-table-column prop="name" label="名称" min-width="120" />
         <el-table-column label="等级" width="80">
-          <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+          <template #default="{ row }">{{ row.rewardLevelTitle || '-' }}</template>
         </el-table-column>
         <el-table-column label="绑定箱" width="88">
           <template #default="{ row }">
@@ -398,19 +449,19 @@ import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import { getActivity } from '@/api/activity'
 import { listBoxes, createBox, updateBox, deleteBox, linkSkuToBox, copySkuToBox } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
-import { listSkuLevels } from '@/api/skuLevel'
+import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
 import type { ActivityVO } from '@/types/activity'
 import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
-import type { ActivitySkuLevelVO } from '@/types/skuLevel'
+import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
 
 interface DraftLinkedSku {
   id: string
   skuCode: string
   name: string
-  skuLevelName?: string
+  rewardLevelTitle?: string
   stockQuantity: number
 }
 
@@ -418,7 +469,7 @@ interface DraftCopiedSku {
   sourceSkuId: string
   sourceSkuCode: string
   name: string
-  skuLevelName?: string
+  rewardLevelTitle?: string
   stockQuantity: number
 }
 
@@ -433,6 +484,21 @@ const activityId = route.params.activityId as string
 
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
+
+const levelCfgLoading = ref(false)
+const levelSaveLoading = ref(false)
+const levelTableRows = ref<
+  { id?: string; title: string; icon?: string; openBoxAnimation?: string; sortOrder: number; tierWeight: number }[]
+>([])
+
+const levelSumDisplay = computed(() =>
+  levelTableRows.value.reduce((s, r) => s + (Number(r.tierWeight) || 0), 0).toFixed(4)
+)
+const levelSumOk = computed(() => {
+  if (levelTableRows.value.length === 0) return true
+  const sum = levelTableRows.value.reduce((s, r) => s + (Number(r.tierWeight) || 0), 0)
+  return Math.abs(sum - 100) <= 0.0001
+})
 
 const loading = ref(false)
 const list = ref<ActivityBoxVO[]>([])
@@ -502,12 +568,12 @@ const selectedProductsForPrize = computed(() =>
   prizeForm.selectedProductIds.map(id => allProductsMap.value.get(id)).filter(Boolean) as ProductVO[]
 )
 
-const skuLevelOptions = ref<ActivitySkuLevelVO[]>([])
+const rewardLevelOptions = ref<RewardLevelVO[]>([])
 
 const prizeForm = reactive({
   skuCode: '',
   name: '',
-  skuLevelId: '' as string,
+  rewardLevelId: '' as string,
   selectedProductIds: [] as string[],
   costPrice: undefined as number | undefined,
   recyclePrice: undefined as number | undefined,
@@ -529,8 +595,8 @@ const productIdsValidator = (_rule: unknown, value: string[], callback: (e?: Err
   else callback()
 }
 
-const prizeSkuLevelValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
-  if (skuLevelOptions.value.length > 0 && !value) callback(new Error('请选择 SKU 等级'))
+const prizeRewardLevelValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (rewardLevelOptions.value.length > 0 && !value) callback(new Error('请选择奖品等级'))
   else callback()
 }
 
@@ -538,7 +604,7 @@ const prizeFormRules: FormRules = {
   name: [{ required: true, message: '请输入奖品名称', trigger: 'blur' }],
   selectedProductIds: [{ required: true, validator: productIdsValidator, trigger: 'change' }],
   stockQuantity: [{ required: true, message: '请输入库存（签数）', trigger: 'blur' }],
-  skuLevelId: [{ validator: prizeSkuLevelValidator, trigger: 'change' }],
+  rewardLevelId: [{ validator: prizeRewardLevelValidator, trigger: 'change' }],
 }
 
 const boxLimitReached = computed(() => {
@@ -574,7 +640,7 @@ function buildPrizePayload(): SkuSaveRequest {
     rightImage: prizeForm.rightImage || undefined,
     topImage: prizeForm.topImage || undefined,
     bottomImage: prizeForm.bottomImage || undefined,
-    skuLevelId: prizeForm.skuLevelId || undefined,
+    rewardLevelId: prizeForm.rewardLevelId || undefined,
   }
 }
 
@@ -583,7 +649,7 @@ function resetPrizeForm() {
   Object.assign(prizeForm, {
     skuCode: '',
     name: '',
-    skuLevelId: '',
+    rewardLevelId: '',
     selectedProductIds: [],
     costPrice: undefined,
     recyclePrice: undefined,
@@ -612,7 +678,7 @@ async function rowToPrizeForm(row: SkuVO) {
   Object.assign(prizeForm, {
     skuCode: row.skuCode,
     name: row.name,
-    skuLevelId: row.skuLevelId || '',
+    rewardLevelId: row.rewardLevelId || '',
     selectedProductIds: ids,
     costPrice: row.costPrice ?? undefined,
     recyclePrice: row.recyclePrice ?? undefined,
@@ -630,19 +696,72 @@ async function rowToPrizeForm(row: SkuVO) {
   })
 }
 
-async function refreshSkuLevels() {
+async function fetchLevelConfig() {
+  levelCfgLoading.value = true
   try {
-    const { data } = await listSkuLevels(activityId)
-    skuLevelOptions.value = data
+    const { data } = await listRewardLevels(activityId)
+    rewardLevelOptions.value = data
+    levelTableRows.value = data.map(d => ({
+      id: d.id,
+      title: d.title,
+      icon: d.icon ?? '',
+      openBoxAnimation: d.openBoxAnimation ?? '',
+      sortOrder: d.sortOrder,
+      tierWeight: typeof d.tierWeight === 'number' ? d.tierWeight : Number(d.tierWeight),
+    }))
   } catch {
-    skuLevelOptions.value = []
+    rewardLevelOptions.value = []
+    levelTableRows.value = []
+  } finally {
+    levelCfgLoading.value = false
   }
 }
 
-function skuLevelNameForDraftSave(row: SkuSaveRequest) {
-  const id = row.skuLevelId
+function addLevelRow() {
+  levelTableRows.value.push({
+    title: '',
+    icon: '',
+    openBoxAnimation: '',
+    sortOrder: levelTableRows.value.length + 1,
+    tierWeight: 10,
+  })
+}
+
+function removeLevelRow(index: number) {
+  levelTableRows.value.splice(index, 1)
+}
+
+async function saveLevelConfig() {
+  if (!levelSumOk.value) {
+    ElMessage.error('各档百分比之和须为 100')
+    return
+  }
+  levelSaveLoading.value = true
+  try {
+    const items = levelTableRows.value.map(r => ({
+      id: r.id,
+      title: r.title.trim(),
+      icon: r.icon?.trim() || undefined,
+      openBoxAnimation: r.openBoxAnimation?.trim() || undefined,
+      sortOrder: r.sortOrder,
+      tierWeight: Number(r.tierWeight),
+    }))
+    if (items.some(i => !i.title)) {
+      ElMessage.error('请填写等级标题')
+      return
+    }
+    await replaceRewardLevels(activityId, items)
+    ElMessage.success('等级配置已保存')
+    await fetchLevelConfig()
+  } finally {
+    levelSaveLoading.value = false
+  }
+}
+
+function rewardLevelTitleForDraftSave(row: SkuSaveRequest) {
+  const id = row.rewardLevelId
   if (!id) return '-'
-  return skuLevelOptions.value.find(o => o.id === id)?.name ?? '-'
+  return rewardLevelOptions.value.find(o => o.id === id)?.title ?? '-'
 }
 
 async function openPrizeDialogForDraft() {
@@ -650,7 +769,7 @@ async function openPrizeDialogForDraft() {
   prizeDialogTitle.value = '添加箱内商品'
   prizeSkuEditId.value = ''
   resetPrizeForm()
-  await refreshSkuLevels()
+  await fetchLevelConfig()
   prizeDialogVisible.value = true
 }
 
@@ -659,7 +778,7 @@ async function openPrizeDialogForNewSku() {
   prizeDialogTitle.value = '添加箱内商品'
   prizeSkuEditId.value = ''
   resetPrizeForm()
-  await refreshSkuLevels()
+  await fetchLevelConfig()
   prizeDialogVisible.value = true
 }
 
@@ -668,7 +787,7 @@ async function openPrizeDialogEditSku(row: SkuVO) {
   prizeDialogTitle.value = '编辑箱内商品'
   prizeSkuEditId.value = row.id
   resetPrizeForm()
-  await refreshSkuLevels()
+  await fetchLevelConfig()
   await rowToPrizeForm(row)
   prizeDialogVisible.value = true
 }
@@ -728,7 +847,7 @@ async function openSkuPicker(ctx: 'edit' | 'draft') {
   skuPickerQuery.page = 1
   skuPickerQuery.keyword = ''
   skuPickerVisible.value = true
-  await refreshSkuLevels()
+  await fetchLevelConfig()
   fetchSkuPickerList()
 }
 
@@ -783,7 +902,7 @@ async function confirmHangStock() {
         id: row.id,
         skuCode: row.skuCode,
         name: row.name,
-        skuLevelName: row.skuLevelName,
+        rewardLevelTitle: row.rewardLevelTitle,
         stockQuantity: qty,
       })
       ElMessage.success('已加入，保存箱子时将挂入签位')
@@ -792,7 +911,7 @@ async function confirmHangStock() {
         sourceSkuId: row.id,
         sourceSkuCode: row.skuCode,
         name: row.name,
-        skuLevelName: row.skuLevelName,
+        rewardLevelTitle: row.rewardLevelTitle,
         stockQuantity: qty,
       })
       ElMessage.success('已加入，保存箱子时将复制并挂箱')
@@ -921,7 +1040,7 @@ async function handleAdd() {
   draftCopiedSkus.value = []
   form.boxStatus = 0
   await refreshNextBoxNumberPreview()
-  await refreshSkuLevels()
+  await fetchLevelConfig()
   dialogVisible.value = true
 }
 
@@ -931,7 +1050,7 @@ async function handleEdit(row: ActivityBoxVO) {
   displayBoxNumber.value = row.boxNumber
   form.boxStatus = row.boxStatus
   dialogVisible.value = true
-  await refreshSkuLevels()
+  await fetchLevelConfig()
   await fetchBoxSkus()
 }
 
@@ -980,7 +1099,7 @@ async function handleDelete(id: string) {
 onMounted(() => {
   fetchActivity()
   fetchBoxes()
-  refreshSkuLevels()
+  fetchLevelConfig()
 })
 </script>
 
@@ -1034,5 +1153,11 @@ onMounted(() => {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   line-height: 1.5;
+}
+.ichiban-level-tip {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.55;
 }
 </style>

@@ -35,7 +35,7 @@
     <el-card style="margin-bottom: 20px" v-loading="levelCfgLoading">
       <template #header>
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
-          <span>SKU 等级（各档百分比合计须为 100%，保存后生效）</span>
+          <span>奖品等级（各档百分比合计须为 100%，保存后生效）</span>
           <div style="display: flex; gap: 8px">
             <el-button size="small" @click="addLevelRow">增行</el-button>
             <el-button type="primary" size="small" :loading="levelSaveLoading" @click="saveLevelConfig">保存等级配置</el-button>
@@ -43,9 +43,19 @@
         </div>
       </template>
       <el-table :data="levelTableRows" stripe size="small" style="width: 100%">
-        <el-table-column label="名称" min-width="140">
+        <el-table-column label="标题" min-width="120">
           <template #default="{ row }">
-            <el-input v-model="row.name" placeholder="如 SSR" />
+            <el-input v-model="row.title" placeholder="如 SSR" />
+          </template>
+        </el-table-column>
+        <el-table-column label="图标" min-width="120">
+          <template #default="{ row }">
+            <el-input v-model="row.icon" placeholder="可选 URL" />
+          </template>
+        </el-table-column>
+        <el-table-column label="开盒动画" min-width="120">
+          <template #default="{ row }">
+            <el-input v-model="row.openBoxAnimation" placeholder="可选" />
           </template>
         </el-table-column>
         <el-table-column label="排序" width="110">
@@ -92,7 +102,7 @@
         <el-table-column prop="skuCode" label="SKU 编码" width="140" />
         <el-table-column prop="name" label="奖品名称" min-width="160" />
         <el-table-column label="等级" width="100">
-          <template #default="{ row }">{{ row.skuLevelName || '-' }}</template>
+          <template #default="{ row }">{{ row.rewardLevelTitle || '-' }}</template>
         </el-table-column>
         <el-table-column label="主图" width="72">
           <template #default="{ row }">
@@ -148,9 +158,9 @@
         <el-form-item label="奖品名称" prop="name">
           <el-input v-model="form.name" placeholder="SKU 显示名称" />
         </el-form-item>
-        <el-form-item v-if="skuLevelOptions.length > 0" label="SKU 等级" prop="skuLevelId">
-          <el-select v-model="form.skuLevelId" placeholder="请选择" filterable style="width: 100%">
-            <el-option v-for="opt in skuLevelOptions" :key="opt.id" :label="opt.name" :value="opt.id" />
+        <el-form-item v-if="rewardLevelOptions.length > 0" label="奖品等级" prop="rewardLevelId">
+          <el-select v-model="form.rewardLevelId" placeholder="请选择" filterable style="width: 100%">
+            <el-option v-for="opt in rewardLevelOptions" :key="opt.id" :label="opt.title" :value="opt.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="关联商品" prop="selectedProductIds">
@@ -282,11 +292,11 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import { getActivity, updateActivity } from '@/api/activity'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
-import { listSkuLevels, replaceSkuLevels } from '@/api/skuLevel'
+import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
 import type { ActivityVO } from '@/types/activity'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
-import type { ActivitySkuLevelVO } from '@/types/skuLevel'
+import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
 
 const route = useRoute()
@@ -298,8 +308,10 @@ const activity = ref<ActivityVO | null>(null)
 
 const levelCfgLoading = ref(false)
 const levelSaveLoading = ref(false)
-const levelTableRows = ref<{ id?: string; name: string; sortOrder: number; tierWeight: number }[]>([])
-const skuLevelOptions = ref<ActivitySkuLevelVO[]>([])
+const levelTableRows = ref<
+  { id?: string; title: string; icon?: string; openBoxAnimation?: string; sortOrder: number; tierWeight: number }[]
+>([])
+const rewardLevelOptions = ref<RewardLevelVO[]>([])
 
 const levelSumDisplay = computed(() =>
   levelTableRows.value.reduce((s, r) => s + (Number(r.tierWeight) || 0), 0).toFixed(4)
@@ -353,7 +365,7 @@ const form = reactive({
   rightImage: '',
   topImage: '',
   bottomImage: '',
-  skuLevelId: '' as string,
+  rewardLevelId: '' as string,
 })
 
 const productIdsValidator = (_rule: any, value: string[], callback: any) => {
@@ -361,8 +373,8 @@ const productIdsValidator = (_rule: any, value: string[], callback: any) => {
   else callback()
 }
 
-const skuLevelValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
-  if (skuLevelOptions.value.length > 0 && !value) callback(new Error('请选择 SKU 等级'))
+const rewardLevelValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (rewardLevelOptions.value.length > 0 && !value) callback(new Error('请选择奖品等级'))
   else callback()
 }
 
@@ -372,7 +384,7 @@ const formRules: FormRules = {
   rewardProbability: [{ required: true, message: '请输入开奖概率', trigger: 'blur' }],
   specialRewardProbability: [{ required: true, message: '请输入特殊开奖概率', trigger: 'blur' }],
   stockQuantity: [{ required: true, message: '请输入库存', trigger: 'blur' }],
-  skuLevelId: [{ validator: skuLevelValidator, trigger: 'change' }],
+  rewardLevelId: [{ validator: rewardLevelValidator, trigger: 'change' }],
 }
 
 function buildPayload(): SkuSaveRequest {
@@ -394,7 +406,7 @@ function buildPayload(): SkuSaveRequest {
     rightImage: form.rightImage || undefined,
     topImage: form.topImage || undefined,
     bottomImage: form.bottomImage || undefined,
-    skuLevelId: form.skuLevelId || undefined,
+    rewardLevelId: form.rewardLevelId || undefined,
   }
 }
 
@@ -419,7 +431,7 @@ function resetForm() {
     rightImage: '',
     topImage: '',
     bottomImage: '',
-    skuLevelId: '',
+    rewardLevelId: '',
   })
 }
 
@@ -450,7 +462,7 @@ async function rowToForm(row: SkuVO) {
     rightImage: row.rightImage || '',
     topImage: row.topImage || '',
     bottomImage: row.bottomImage || '',
-    skuLevelId: row.skuLevelId || '',
+    rewardLevelId: row.rewardLevelId || '',
   })
 }
 
@@ -554,11 +566,13 @@ async function recalcProfitRate() {
 async function fetchLevelConfig() {
   levelCfgLoading.value = true
   try {
-    const { data } = await listSkuLevels(activityId)
-    skuLevelOptions.value = data
+    const { data } = await listRewardLevels(activityId)
+    rewardLevelOptions.value = data
     levelTableRows.value = data.map(d => ({
       id: d.id,
-      name: d.name,
+      title: d.title,
+      icon: d.icon ?? '',
+      openBoxAnimation: d.openBoxAnimation ?? '',
       sortOrder: d.sortOrder,
       tierWeight: typeof d.tierWeight === 'number' ? d.tierWeight : Number(d.tierWeight),
     }))
@@ -569,7 +583,9 @@ async function fetchLevelConfig() {
 
 function addLevelRow() {
   levelTableRows.value.push({
-    name: '',
+    title: '',
+    icon: '',
+    openBoxAnimation: '',
     sortOrder: levelTableRows.value.length + 1,
     tierWeight: 10,
   })
@@ -588,15 +604,17 @@ async function saveLevelConfig() {
   try {
     const items = levelTableRows.value.map(r => ({
       id: r.id,
-      name: r.name.trim(),
+      title: r.title.trim(),
+      icon: r.icon?.trim() || undefined,
+      openBoxAnimation: r.openBoxAnimation?.trim() || undefined,
       sortOrder: r.sortOrder,
       tierWeight: Number(r.tierWeight),
     }))
-    if (items.some(i => !i.name)) {
-      ElMessage.error('请填写等级名称')
+    if (items.some(i => !i.title)) {
+      ElMessage.error('请填写等级标题')
       return
     }
-    await replaceSkuLevels(activityId, items)
+    await replaceRewardLevels(activityId, items)
     ElMessage.success('等级配置已保存')
     await fetchLevelConfig()
   } finally {

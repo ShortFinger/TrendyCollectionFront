@@ -16,9 +16,11 @@ export interface SkuVO {
   activityId: string
   activityType: number
   boxId?: string
-  skuLevelId?: string
-  skuLevelName?: string
-  skuLevelSortOrder?: number
+  rewardLevelId?: string
+  rewardLevelTitle?: string
+  rewardLevelSortOrder?: number
+  rewardLevelIcon?: string
+  rewardLevelOpenBoxAnimation?: string
   name: string
   specAttributes: string
   rewardProbability: number
@@ -46,7 +48,7 @@ export interface SkuSaveRequest {
   activityType?: number
   /** 传入时按 stockQuantity 在 activity_box_item 中生成对应条数 */
   boxId?: string
-  skuLevelId?: string
+  rewardLevelId?: string
   name: string
   specAttributes?: string
   rewardProbability: number
