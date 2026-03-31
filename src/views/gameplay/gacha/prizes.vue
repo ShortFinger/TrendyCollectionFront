@@ -3,7 +3,12 @@
     <el-page-header @back="router.back()" title="返回卡池列表" :content="activity?.title ?? '编辑奖品'" style="margin-bottom: 20px" />
 
     <el-card style="margin-bottom: 20px" v-loading="actLoading">
-      <template #header><span>卡池信息</span></template>
+      <template #header>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+          <span>卡池信息</span>
+          <el-button type="primary" plain size="small" :disabled="!activity" @click="openSimDialog">模拟抽奖</el-button>
+        </div>
+      </template>
       <template v-if="activity">
         <el-descriptions :column="3" border>
           <el-descriptions-item label="卡池名称">{{ activity.title }}</el-descriptions-item>
@@ -282,6 +287,85 @@
         <el-button type="primary" @click="confirmProductPicker">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="simDialogVisible" title="抽奖模拟（内存统计，不发奖）" width="640px" destroy-on-close>
+      <el-form v-if="!simResult" label-width="120px">
+        <el-form-item label="参与人数 N">
+          <el-input-number v-model="simForm.participantCount" :min="1" :max="10000" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="每人次数 M">
+          <el-input-number v-model="simForm.drawsPerPerson" :min="1" :max="500" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="随机种子">
+          <el-input v-model="simForm.seedText" placeholder="可选，留空由服务端生成" clearable />
+        </el-form-item>
+        <el-form-item
+          v-if="activity && (activity.activityType === 7 || activity.activityType === 8)"
+          label="箱子"
+          :required="simBoxList.length > 1"
+        >
+          <el-select
+            v-model="simForm.boxId"
+            placeholder="请选择箱子（多箱必选）"
+            filterable
+            clearable
+            style="width: 100%"
+            :loading="simBoxLoading"
+          >
+            <el-option
+              v-for="b in simBoxList"
+              :key="b.id"
+              :label="`#${b.boxNumber}（剩余 ${b.boxItemLeft ?? 0}）`"
+              :value="b.id"
+            />
+          </el-select>
+          <div v-if="simBoxList.length === 1" style="margin-top: 4px; color: var(--el-text-color-secondary); font-size: 12px">
+            仅一箱时可不选，由后端默认该箱
+          </div>
+        </el-form-item>
+      </el-form>
+      <template v-else>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="总次数">{{ simResult.totalDraws }}</el-descriptions-item>
+          <el-descriptions-item label="成功/失败">{{ simResult.successCount }} / {{ simResult.failureCount }}</el-descriptions-item>
+          <el-descriptions-item label="种子">{{ simResult.seed }}</el-descriptions-item>
+          <el-descriptions-item label="耗时 ms">{{ simResult.durationMs }}</el-descriptions-item>
+          <el-descriptions-item v-if="simResult.resolvedBoxId" label="模拟箱子" :span="2">{{ simResult.resolvedBoxId }}</el-descriptions-item>
+          <el-descriptions-item label="每人命中" :span="2">
+            min {{ simResult.perUser.minWins }} / max {{ simResult.perUser.maxWins }} / 均值 {{ simResult.perUser.meanWins.toFixed(4) }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <div style="margin-top: 12px; font-weight: 600">按 SKU</div>
+        <el-table :data="simResult.skuStats" size="small" max-height="220" style="width: 100%; margin-top: 8px">
+          <el-table-column prop="skuId" label="SKU ID" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="name" label="名称" min-width="100" />
+          <el-table-column prop="count" label="次数" width="90" />
+          <el-table-column label="占比" width="100">
+            <template #default="{ row }">{{ (row.ratio * 100).toFixed(2) }}%</template>
+          </el-table-column>
+        </el-table>
+        <div v-if="simResult.levelStats?.length" style="margin-top: 12px; font-weight: 600">按奖品等级</div>
+        <el-table
+          v-if="simResult.levelStats?.length"
+          :data="simResult.levelStats"
+          size="small"
+          max-height="200"
+          style="width: 100%; margin-top: 8px"
+        >
+          <el-table-column prop="levelId" label="等级 ID" min-width="100" show-overflow-tooltip />
+          <el-table-column prop="title" label="标题" min-width="80" />
+          <el-table-column prop="count" label="次数" width="90" />
+          <el-table-column label="占比" width="100">
+            <template #default="{ row }">{{ (row.ratio * 100).toFixed(2) }}%</template>
+          </el-table-column>
+        </el-table>
+      </template>
+      <template #footer>
+        <el-button @click="closeSimDialog">{{ simResult ? '关闭' : '取消' }}</el-button>
+        <el-button v-if="!simResult" type="primary" :loading="simLoading" @click="runSimulation">开始模拟</el-button>
+        <el-button v-if="simResult" type="primary" @click="resetSimForm">再跑一次</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -290,11 +374,13 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
-import { getActivity, updateActivity } from '@/api/activity'
+import { getActivity, updateActivity, postLotterySimulation } from '@/api/activity'
+import { listBoxes } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
 import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
-import type { ActivityVO } from '@/types/activity'
+import type { ActivityVO, LotterySimulationRequest, LotterySimulationResponse } from '@/types/activity'
+import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
 import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
@@ -305,6 +391,73 @@ const activityId = route.params.activityId as string
 
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
+
+const simDialogVisible = ref(false)
+const simLoading = ref(false)
+const simResult = ref<LotterySimulationResponse | null>(null)
+const simForm = reactive({ participantCount: 100, drawsPerPerson: 1, seedText: '', boxId: '' })
+const simBoxList = ref<ActivityBoxVO[]>([])
+const simBoxLoading = ref(false)
+
+async function openSimDialog() {
+  simResult.value = null
+  simForm.boxId = ''
+  simBoxList.value = []
+  if (activity.value && (activity.value.activityType === 7 || activity.value.activityType === 8)) {
+    simBoxLoading.value = true
+    try {
+      const res = await listBoxes(activityId, { page: 1, size: 100 })
+      simBoxList.value = res.data?.records ?? []
+      if (simBoxList.value.length === 1) {
+        simForm.boxId = simBoxList.value[0].id
+      }
+    } finally {
+      simBoxLoading.value = false
+    }
+  }
+  simDialogVisible.value = true
+}
+
+function closeSimDialog() {
+  simDialogVisible.value = false
+}
+
+function resetSimForm() {
+  simResult.value = null
+}
+
+async function runSimulation() {
+  const seedStr = simForm.seedText.trim()
+  if (seedStr !== '' && Number.isNaN(Number(seedStr))) {
+    ElMessage.warning('随机种子须为数字')
+    return
+  }
+  if (activity.value && (activity.value.activityType === 7 || activity.value.activityType === 8)) {
+    if (simBoxList.value.length > 1 && !simForm.boxId) {
+      ElMessage.warning('请选择要模拟的箱子')
+      return
+    }
+  }
+
+  simLoading.value = true
+  try {
+    const seed = seedStr === '' ? undefined : Number(seedStr)
+    const payload: LotterySimulationRequest = {
+      participantCount: simForm.participantCount,
+      drawsPerPerson: simForm.drawsPerPerson,
+      seed: seed ?? null,
+    }
+    if (activity.value && (activity.value.activityType === 7 || activity.value.activityType === 8) && simForm.boxId) {
+      payload.boxId = simForm.boxId
+    }
+    const res = await postLotterySimulation(activityId, payload)
+    simResult.value = res.data
+  } catch {
+    /* ElMessage 已由拦截器处理 */
+  } finally {
+    simLoading.value = false
+  }
+}
 
 const levelCfgLoading = ref(false)
 const levelSaveLoading = ref(false)

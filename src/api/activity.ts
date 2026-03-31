@@ -1,6 +1,13 @@
 import request from '@/utils/request'
 import type { Result, PageResult } from '@/types/api'
-import type { ActivityQueryRequest, ActivityVO, ActivitySaveRequest, ActivityStatusUpdateRequest } from '@/types/activity'
+import type {
+  ActivityQueryRequest,
+  ActivityVO,
+  ActivitySaveRequest,
+  ActivityStatusUpdateRequest,
+  LotterySimulationRequest,
+  LotterySimulationResponse,
+} from '@/types/activity'
 
 export function listActivities(params: ActivityQueryRequest) {
   return request.get<any, Result<PageResult<ActivityVO>>>('/order-admin-api/activities', { params })
@@ -24,4 +31,11 @@ export function updateActivityStatus(id: string, data: ActivityStatusUpdateReque
 
 export function deleteActivity(id: string) {
   return request.delete<any, Result<void>>(`/order-admin-api/activities/${id}`)
+}
+
+export function postLotterySimulation(activityId: string, data: LotterySimulationRequest) {
+  return request.post<any, Result<LotterySimulationResponse>>(
+    `/order-admin-api/activities/${activityId}/lottery-simulation`,
+    data
+  )
 }

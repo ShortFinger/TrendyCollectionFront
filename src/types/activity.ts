@@ -61,6 +61,50 @@ export interface ActivitySaveRequest {
   isRandomRewardEnabled?: number
 }
 
+export interface LotterySimulationRequest {
+  participantCount: number
+  drawsPerPerson: number
+  seed?: number | null
+  boxId?: string | null
+}
+
+export interface LotterySimulationSkuStat {
+  skuId: string
+  name?: string | null
+  count: number
+  ratio: number
+}
+
+export interface LotterySimulationLevelStat {
+  levelId: string
+  title?: string | null
+  count: number
+  ratio: number
+}
+
+export interface LotterySimulationPerUser {
+  minWins: number
+  maxWins: number
+  meanWins: number
+}
+
+export interface LotterySimulationResponse {
+  activityId: string
+  activityType: number
+  participantCount: number
+  drawsPerPerson: number
+  totalDraws: number
+  seed: number
+  durationMs: number
+  successCount: number
+  failureCount: number
+  /** 7/8 时服务端解析后的箱子 ID */
+  resolvedBoxId?: string | null
+  skuStats: LotterySimulationSkuStat[]
+  levelStats: LotterySimulationLevelStat[]
+  perUser: LotterySimulationPerUser
+}
+
 export interface ActivityStatusUpdateRequest {
   status: number
 }
