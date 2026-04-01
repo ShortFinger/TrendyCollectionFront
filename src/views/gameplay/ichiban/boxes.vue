@@ -1,17 +1,17 @@
 <template>
   <div class="page boxes-page">
-    <el-page-header @back="router.back()" title="返回赏池列表" :content="activity?.title ?? '编辑箱子'" style="margin-bottom: 20px" />
+    <el-page-header @back="goBackToActivityList" :title="backListTitle" :content="activity?.title ?? '编辑箱子'" style="margin-bottom: 20px" />
 
     <el-card style="margin-bottom: 20px" v-loading="actLoading">
       <template #header>
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
-          <span>赏池信息</span>
+          <span>{{ poolInfoCardTitle }}</span>
           <el-button type="primary" plain size="small" :disabled="!activity" @click="openSimDialog">模拟抽奖</el-button>
         </div>
       </template>
       <template v-if="activity">
         <el-descriptions :column="3" border>
-          <el-descriptions-item label="赏池名称">{{ activity.title }}</el-descriptions-item>
+          <el-descriptions-item :label="activity?.activityType === 8 ? '活动名称' : '赏池名称'">{{ activity.title }}</el-descriptions-item>
           <el-descriptions-item label="活动 ID">{{ activity.id }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="activity.status === 1 ? 'success' : 'info'">{{ activity.status === 1 ? '上架' : '下架' }}</el-tag>
@@ -553,7 +553,6 @@ interface DraftCopiedSku {
   stockQuantity: number
 }
 
-const ACT_TYPE_ICHIBAN = 7
 /** 箱内开奖概率由后端固定为 100% */
 const BOX_SKU_REWARD_PROBABILITY = 100
 const BOX_SKU_SPECIAL_REWARD_PROBABILITY = 100
@@ -564,6 +563,30 @@ const activityId = route.params.activityId as string
 
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
+
+const activityListPath = computed(() =>
+  route.path.startsWith('/gameplay/unlimited') ? '/gameplay/unlimited' : '/gameplay/ichiban'
+)
+
+const kujiKindShortLabel = computed(() =>
+  route.path.startsWith('/gameplay/unlimited') ? '无限赏' : '一番赏'
+)
+
+const backListTitle = computed(() => `返回${kujiKindShortLabel.value}列表`)
+
+const poolInfoCardTitle = computed(() =>
+  activity.value?.activityType === 8 ? '活动信息' : '赏池信息'
+)
+
+function kujiActivityTypeForSku(): 7 | 8 {
+  const t = activity.value?.activityType
+  if (t === 7 || t === 8) return t
+  return 7
+}
+
+function goBackToActivityList() {
+  router.push(activityListPath.value)
+}
 
 const simDialogVisible = ref(false)
 const simLoading = ref(false)
@@ -767,7 +790,7 @@ function buildPrizePayload(): SkuSaveRequest {
   return {
     name: prizeForm.name,
     productIds: prizeForm.selectedProductIds.length > 0 ? JSON.stringify(prizeForm.selectedProductIds) : undefined,
-    activityType: ACT_TYPE_ICHIBAN,
+    activityType: kujiActivityTypeForSku(),
     costPrice: prizeForm.costPrice,
     recyclePrice: prizeForm.recyclePrice,
     originalPrice: prizeForm.originalPrice,
