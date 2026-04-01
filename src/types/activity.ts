@@ -30,6 +30,8 @@ export interface ActivityVO {
   isRandomRewardEnabled: number
   activityType: number
   boxCount: number
+  /** 一番赏最终赏 SKU，空表示不开启 */
+  finalPrizeSkuId?: string | null
   /** 是否开启榜单 0/1 */
   rank: number
   amountLimit: number
@@ -55,6 +57,8 @@ export interface ActivitySaveRequest {
   tags?: string
   activityType?: number
   boxCount?: number
+  /** 一番赏最终赏 SKU，空表示不开启 */
+  finalPrizeSkuId?: string | null
   rank?: number
   amountLimit?: number
   specialAreaId?: string
@@ -98,6 +102,8 @@ export interface LotterySimulationResponse {
   durationMs: number
   successCount: number
   failureCount: number
+  /** 一番赏：抽空普通签后自动发放最终赏的次数 */
+  finalPrizeGrantCount?: number
   /** 7/8 时服务端解析后的箱子 ID */
   resolvedBoxId?: string | null
   skuStats: LotterySimulationSkuStat[]

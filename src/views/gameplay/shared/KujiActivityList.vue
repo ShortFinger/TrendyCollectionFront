@@ -113,6 +113,9 @@
         <el-form-item label="最大箱子数" prop="boxCount">
           <el-input-number v-model="form.boxCount" :min="1" style="width: 100%" />
         </el-form-item>
+        <el-form-item v-if="props.activityType === 7" label="最终赏 SKU ID">
+          <el-input v-model="form.finalPrizeSkuId" placeholder="留空表示不开启；须为活动内已创建 SKU" clearable />
+        </el-form-item>
         <el-form-item label="人民币价格" prop="moneyPrice">
           <el-input-number v-model="form.moneyPrice" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
@@ -193,6 +196,7 @@ const form = reactive({
   lowerRightCornerMark: '',
   images: '',
   boxCount: 1,
+  finalPrizeSkuId: '',
   moneyPrice: 0,
   scorePrice: 0,
   profitRate: 0,
@@ -219,6 +223,8 @@ function buildSavePayload(): ActivitySaveRequest {
     title: form.title,
     activityType: props.activityType,
     boxCount: form.boxCount,
+    finalPrizeSkuId:
+      props.activityType === 7 && form.finalPrizeSkuId.trim() !== '' ? form.finalPrizeSkuId.trim() : undefined,
     squareThumb: form.squareThumb || undefined,
     longThumb: form.longThumb || undefined,
     lowerLeftCornerMark: form.lowerLeftCornerMark || undefined,
@@ -248,6 +254,7 @@ function resetForm() {
     lowerRightCornerMark: '',
     images: '',
     boxCount: 1,
+    finalPrizeSkuId: '',
     moneyPrice: 0,
     scorePrice: 0,
     profitRate: 0,
@@ -272,6 +279,7 @@ function rowToForm(row: ActivityVO) {
     lowerRightCornerMark: row.lowerRightCornerMark || '',
     images: row.images || '',
     boxCount: row.boxCount ?? 1,
+    finalPrizeSkuId: row.finalPrizeSkuId || '',
     moneyPrice: row.moneyPrice,
     scorePrice: row.scorePrice,
     profitRate: row.profitRate ?? 0,

@@ -22,12 +22,22 @@ export function deleteBox(activityId: string, id: string) {
   return request.delete<any, Result<void>>(`/order-admin-api/activities/${activityId}/boxes/${id}`)
 }
 
-export function linkSkuToBox(activityId: string, boxId: string, skuId: string) {
-  return request.post<any, Result<void>>(`/order-admin-api/activities/${activityId}/boxes/${boxId}/link-sku`, { skuId })
+export function linkSkuToBox(activityId: string, boxId: string, skuId: string, stockQuantity: number) {
+  return request.post<any, Result<void>>(`/order-admin-api/activities/${activityId}/boxes/${boxId}/link-sku`, {
+    skuId,
+    stockQuantity,
+  })
 }
 
-export function copySkuToBox(activityId: string, boxId: string, sourceSkuId: string) {
+export function copySkuToBox(activityId: string, boxId: string, sourceSkuId: string, stockQuantity: number) {
   return request.post<any, Result<string>>(`/order-admin-api/activities/${activityId}/boxes/${boxId}/copy-sku`, {
     sourceSkuId,
+    stockQuantity,
   })
+}
+
+export function duplicateBox(activityId: string, sourceBoxId: string) {
+  return request.post<any, Result<string>>(
+    `/order-admin-api/activities/${activityId}/boxes/${sourceBoxId}/duplicate`
+  )
 }
