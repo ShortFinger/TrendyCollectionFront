@@ -92,6 +92,12 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '无限赏' },
           },
           {
+            path: 'unlimited/:activityId/boxes',
+            name: 'UnlimitedBoxes',
+            component: () => import('@/views/gameplay/ichiban/boxes.vue'),
+            meta: { title: '编辑箱子', hidden: true },
+          },
+          {
             path: 'gacha',
             name: 'GameplayGacha',
             component: () => import('@/views/gameplay/gacha/index.vue'),
