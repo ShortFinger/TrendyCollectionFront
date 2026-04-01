@@ -35,7 +35,8 @@
     <el-card style="margin-bottom: 20px" v-loading="levelCfgLoading">
       <template #header>
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
-          <span>奖品等级（各档百分比合计须为 100%，保存后生效）</span>
+          <span v-if="hideTierWeightUi">奖品等级（各档权重由系统自动均分，不参与开箱随机；保存后生效）</span>
+          <span v-else>奖品等级（各档百分比合计须为 100%，保存后生效）</span>
           <div style="display: flex; gap: 8px">
             <el-button size="small" @click="addLevelRow">增行</el-button>
             <el-button type="primary" size="small" :loading="levelSaveLoading" @click="saveLevelConfig">保存等级配置</el-button>
@@ -43,7 +44,8 @@
         </div>
       </template>
       <p class="ichiban-level-tip">
-        说明：一番赏、无限赏玩法下，档位百分比<strong>不参与</strong>开箱随机，仅用于展示与运营；开箱仍按各 SKU 开奖概率及箱内规则。
+        <template v-if="hideTierWeightUi">说明：本玩法下各档权重由后台自动均分（合计 100%），不在此编辑；开箱仍按各 SKU 开奖概率及箱内规则。</template>
+        <template v-else>说明：一番赏、无限赏玩法下，档位百分比<strong>不参与</strong>开箱随机，仅用于展示与运营；开箱仍按各 SKU 开奖概率及箱内规则。</template>
       </p>
       <el-table :data="levelTableRows" stripe size="small" style="width: 100%">
         <el-table-column label="标题" min-width="120">
@@ -66,7 +68,7 @@
             <el-input-number v-model="row.sortOrder" :min="0" :step="1" controls-position="right" style="width: 100%" />
           </template>
         </el-table-column>
-        <el-table-column label="百分比" width="150">
+        <el-table-column v-if="!hideTierWeightUi" label="百分比" width="150">
           <template #default="{ row }">
             <el-input-number v-model="row.tierWeight" :min="0.0001" :max="100" :precision="4" style="width: 100%" />
           </template>
@@ -77,7 +79,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <p style="margin: 12px 0 0; font-size: 13px; color: var(--el-text-color-secondary)">
+      <p v-if="!hideTierWeightUi" style="margin: 12px 0 0; font-size: 13px; color: var(--el-text-color-secondary)">
         当前合计：<strong :style="{ color: levelSumOk ? 'var(--el-color-success)' : 'var(--el-color-danger)' }">{{ levelSumDisplay }}%</strong>
         <span v-if="!levelSumOk && levelTableRows.length > 0">（须等于 100 才能保存）</span>
       </p>
@@ -116,9 +118,19 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button
+              link
+              type="primary"
+              size="small"
+              :disabled="boxLimitReached"
+              :loading="duplicateLoadingId === row.id"
+              @click="handleDuplicateBox(row)"
+            >
+              复制
+            </el-button>
             <el-popconfirm title="确定删除该箱子？" @confirm="handleDelete(row.id)">
               <template #reference>
                 <el-button link type="danger" size="small">删除</el-button>
@@ -147,13 +159,9 @@
           <el-input :model-value="String(isEdit ? displayBoxNumber : nextBoxNumberPreview)" disabled style="width: 100%" />
           <span v-if="!isEdit" class="box-number-hint">保存时自动分配为当前最大编号 +1（从 1 开始）</span>
         </el-form-item>
-        <el-form-item label="箱子状态" prop="boxStatus">
-          <el-select v-model="form.boxStatus" style="width: 100%">
-            <el-option label="未开启" :value="0" />
-            <el-option label="进行中" :value="1" />
-            <el-option label="已结束" :value="2" />
-          </el-select>
-        </el-form-item>
+        <p v-if="!isEdit" class="box-status-hint" style="margin: 0 0 12px 100px; font-size: 13px; color: var(--el-text-color-secondary)">
+          箱子状态由系统根据剩余签位与活动上架自动更新（进行中 / 已抽完），不可手动选择。
+        </p>
 
         <el-divider content-position="left">箱内商品</el-divider>
         <p class="box-prize-hint">
@@ -480,6 +488,12 @@
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="总次数">{{ simResult.totalDraws }}</el-descriptions-item>
           <el-descriptions-item label="成功/失败">{{ simResult.successCount }} / {{ simResult.failureCount }}</el-descriptions-item>
+          <el-descriptions-item
+            v-if="simResult.finalPrizeGrantCount != null && simResult.finalPrizeGrantCount > 0"
+            label="最终赏自动发放次数"
+          >
+            {{ simResult.finalPrizeGrantCount }}
+          </el-descriptions-item>
           <el-descriptions-item label="种子">{{ simResult.seed }}</el-descriptions-item>
           <el-descriptions-item label="耗时 ms">{{ simResult.durationMs }}</el-descriptions-item>
           <el-descriptions-item v-if="simResult.resolvedBoxId" label="模拟箱子" :span="2">{{ simResult.resolvedBoxId }}</el-descriptions-item>
@@ -524,10 +538,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import { getActivity, postLotterySimulation } from '@/api/activity'
-import { listBoxes, createBox, updateBox, deleteBox, linkSkuToBox, copySkuToBox } from '@/api/activityBox'
+import { listBoxes, createBox, updateBox, deleteBox, linkSkuToBox, copySkuToBox, duplicateBox } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
 import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
@@ -666,6 +680,13 @@ const levelSumOk = computed(() => {
   return Math.abs(sum - 100) <= 0.0001
 })
 
+/** 本页仅一番赏/无限赏；activity 未返回前也按隐藏处理，避免先闪现百分比列 */
+const hideTierWeightUi = computed(() => {
+  const a = activity.value
+  if (!a) return true
+  return a.activityType === 7 || a.activityType === 8
+})
+
 const loading = ref(false)
 const list = ref<ActivityBoxVO[]>([])
 const total = ref(0)
@@ -677,16 +698,14 @@ const editId = ref('')
 const submitLoading = ref(false)
 const formRef = ref<FormInstance>()
 
-const form = reactive({
-  boxStatus: 0,
-})
+const form = reactive<Record<string, unknown>>({})
 
 const displayBoxNumber = ref(0)
 const nextBoxNumberPreview = ref(1)
 
-const formRules: FormRules = {
-  boxStatus: [{ required: true, message: '请选择箱子状态', trigger: 'change' }],
-}
+const formRules: FormRules = {}
+
+const duplicateLoadingId = ref<string | null>(null)
 
 const draftPrizes = ref<SkuSaveRequest[]>([])
 const draftLinkedSkus = ref<DraftLinkedSku[]>([])
@@ -781,7 +800,7 @@ const boxLimitReached = computed(() => {
 function boxStatusTag(status: number) {
   switch (status) {
     case 1: return { type: 'success' as const, label: '进行中' }
-    case 2: return { type: 'info' as const, label: '已结束' }
+    case 2: return { type: 'info' as const, label: '已抽完' }
     default: return { type: 'warning' as const, label: '未开启' }
   }
 }
@@ -898,7 +917,7 @@ function removeLevelRow(index: number) {
 }
 
 async function saveLevelConfig() {
-  if (!levelSumOk.value) {
+  if (!hideTierWeightUi.value && !levelSumOk.value) {
     ElMessage.error('各档百分比之和须为 100')
     return
   }
@@ -1204,7 +1223,6 @@ async function handleAdd() {
   draftPrizes.value = []
   draftLinkedSkus.value = []
   draftCopiedSkus.value = []
-  form.boxStatus = 0
   await refreshNextBoxNumberPreview()
   await fetchLevelConfig()
   dialogVisible.value = true
@@ -1214,7 +1232,6 @@ async function handleEdit(row: ActivityBoxVO) {
   isEdit.value = true
   editId.value = row.id
   displayBoxNumber.value = row.boxNumber
-  form.boxStatus = row.boxStatus
   dialogVisible.value = true
   await fetchLevelConfig()
   await fetchBoxSkus()
@@ -1226,10 +1243,10 @@ async function handleSubmit() {
   submitLoading.value = true
   try {
     if (isEdit.value) {
-      await updateBox(activityId, editId.value, { boxStatus: form.boxStatus })
+      await updateBox(activityId, editId.value, {})
       ElMessage.success('更新成功')
     } else {
-      const res = await createBox(activityId, { boxStatus: form.boxStatus })
+      const res = await createBox(activityId, {})
       const newBoxId = res.data as string
       for (const p of draftPrizes.value) {
         await createSku(activityId, { ...p, boxId: newBoxId })
@@ -1260,6 +1277,26 @@ async function handleDelete(id: string) {
   await deleteBox(activityId, id)
   ElMessage.success('删除成功')
   fetchBoxes()
+}
+
+async function handleDuplicateBox(row: ActivityBoxVO) {
+  try {
+    await ElMessageBox.confirm(
+      '将新建一箱并克隆当前箱内普通赏 SKU 与签位；一番赏活动将占用最终赏 SKU 库存（与手动「新增箱子」相同）。源箱数据不变。是否继续？',
+      '复制箱子',
+      { type: 'warning', confirmButtonText: '复制', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  duplicateLoadingId.value = row.id
+  try {
+    await duplicateBox(activityId, row.id)
+    ElMessage.success('复制成功')
+    await fetchBoxes()
+  } finally {
+    duplicateLoadingId.value = null
+  }
 }
 
 onMounted(() => {
