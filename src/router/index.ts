@@ -22,6 +22,25 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '仪表盘', icon: 'Odometer' },
       },
       {
+        path: 'app-mgmt',
+        name: 'AppMgmt',
+        component: ParentView,
+        redirect: '/app-mgmt/home',
+        meta: { title: 'APP管理', icon: 'Iphone' },
+        children: [
+          {
+            path: 'home',
+            name: 'AppHome',
+            component: () => import('@/views/app-home/index.vue'),
+            meta: { title: 'APP 首頁' },
+          },
+        ],
+      },
+      {
+        path: 'app-home',
+        redirect: '/app-mgmt/home',
+      },
+      {
         path: 'goods',
         name: 'Goods',
         component: () => import('@/views/goods/index.vue'),
