@@ -13,7 +13,7 @@ export function listPages() {
 }
 
 export function createAppPage(data: { pageKey: string; title: string }) {
-  return request.post<any, Result<EditorPageSummary>>(`${BASE}/pages`, data)
+  return request.post<any, Result<void>>(`${BASE}/pages`, data)
 }
 
 export function fetchEditorState(pageKey: string) {
