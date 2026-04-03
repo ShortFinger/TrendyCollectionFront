@@ -12,7 +12,7 @@ export function listPages() {
   return request.get<any, Result<EditorPageSummary[]>>(`${BASE}/pages`)
 }
 
-export function createAppPage(data: { pageKey: string; title: string }) {
+export function createAppPage(data: { pageKey: string; title: string; appPageUrl: string }) {
   return request.post<any, Result<void>>(`${BASE}/pages`, data)
 }
 
