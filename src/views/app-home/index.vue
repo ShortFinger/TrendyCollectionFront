@@ -3,7 +3,7 @@
     <el-card shadow="never" class="toolbar-card">
       <div class="toolbar">
         <div class="status">
-          <span class="label">已發布版本</span>
+          <span class="label">已发布版本</span>
           <el-tag type="info">{{ state?.page?.publishedRevision ?? '—' }}</el-tag>
           <span class="label">草稿版本</span>
           <el-tag type="warning">{{ state?.page?.draftRevision ?? '—' }}</el-tag>
@@ -11,64 +11,48 @@
         </div>
         <div class="actions">
           <el-button @click="load" :loading="loading">刷新</el-button>
-          <el-button type="primary" plain @click="doFork" :loading="forking">從已發布拉取草稿</el-button>
-          <el-button type="success" @click="doPublish" :loading="publishing">發布</el-button>
+          <el-button type="primary" plain @click="doFork" :loading="forking">从已发布版本拉取草稿</el-button>
+          <el-button type="success" @click="doPublish" :loading="publishing">发布</el-button>
         </div>
       </div>
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        class="hint"
-        title="發布成功後，C 端 App 因緩存可能存在短延遲後才看見最新內容。"
-      />
-      <el-alert
-        v-if="pageNotFound"
-        type="warning"
-        :closable="false"
-        show-icon
-        class="hint-not-found"
-      >
-        該 pageKey 尚未建立或已被刪除。請前往
+      <el-alert type="info" :closable="false" show-icon class="hint" title="发布成功后，C 端 App 因缓存可能存在短延迟后才看见最新内容。" />
+      <el-alert v-if="pageNotFound" type="warning" :closable="false" show-icon class="hint-not-found">
+        该 pageKey 尚未建立或已被刪除。請前往
         <router-link to="/app-mgmt/page-create">新增页面</router-link>
-        建立頁面後再試。
+        建立页面后再次尝试。
       </el-alert>
     </el-card>
 
     <el-card shadow="never">
       <template #header>
         <div class="card-head">
-          <span>槽位（頁面 {{ pageDisplayLabel }}，草稿）</span>
-          <el-button type="primary" :icon="Plus" @click="openAddSlot">新增槽位</el-button>
+          <span>槽位（页面 {{ pageDisplayLabel }}，草稿）</span>
+          <el-button type="primary" :icon="Plus" @click="openAddSlot">添加槽位</el-button>
         </div>
       </template>
 
       <el-table v-loading="loading" :data="sortedSlots" row-key="id" border>
-        <el-table-column label="順序" width="72" align="center">
+        <el-table-column label="顺序" width="72" align="center">
           <template #default="{ $index }">
             <span>{{ $index + 1 }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="slotType" label="類型" width="120">
+        <el-table-column prop="slotType" label="类型" width="120">
           <template #default="{ row }">
             {{ slotLabel(row.slotType) }}
           </template>
         </el-table-column>
         <el-table-column prop="sortOrder" label="sortOrder" width="100" />
-        <el-table-column label="內容項數" width="100" align="center">
+        <el-table-column label="内容项数" width="100" align="center">
           <template #default="{ row }">
             {{ row.items?.length ?? 0 }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row, $index }">
-            <el-button link type="primary" @click="openItemsDrawer(row)">內容項</el-button>
+            <el-button link type="primary" @click="openItemsDrawer(row)">内容项</el-button>
             <el-button link :disabled="$index === 0" @click="moveSlot($index, -1)">上移</el-button>
-            <el-button
-              link
-              :disabled="$index === sortedSlots.length - 1"
-              @click="moveSlot($index, 1)"
-            >
+            <el-button link :disabled="$index === sortedSlots.length - 1" @click="moveSlot($index, 1)">
               下移
             </el-button>
           </template>
@@ -76,67 +60,58 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="slotDialogVisible" title="新增槽位" width="420px" destroy-on-close>
+    <el-dialog v-model="slotDialogVisible" title="添加槽位" width="420px" destroy-on-close>
       <el-form label-width="100px">
-        <el-form-item label="類型">
+        <el-form-item label="类型">
           <el-select v-model="newSlotType" style="width: 100%">
-            <el-option label="輪播行（banner_row）" value="banner_row" />
-            <el-option label="圖標宮格（icon_grid）" value="icon_grid" />
+            <el-option label="轮播行（banner_row）" value="banner_row" />
+            <el-option label="图标宫格（icon_grid）" value="icon_grid" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="slotDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="slotSaving" @click="submitNewSlot">確定</el-button>
+        <el-button type="primary" :loading="slotSaving" @click="submitNewSlot">确定</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="drawerVisible" :title="`內容項 — ${slotLabel(activeSlot?.slotType ?? '')}`" size="520px">
+    <el-drawer v-model="drawerVisible" :title="`内容项 — ${slotLabel(activeSlot?.slotType ?? '')}`" size="520px">
       <div class="drawer-actions">
-        <el-button type="primary" size="small" :icon="Plus" @click="openItemDialog(null)">新增內容項</el-button>
+        <el-button type="primary" size="small" :icon="Plus" @click="openItemDialog(null)">添加内容项</el-button>
       </div>
       <el-table :data="activeSlot?.items ?? []" size="small" border>
         <el-table-column prop="sortOrder" label="序" width="56" />
-        <el-table-column label="預覽" width="72">
+        <el-table-column label="预览" width="72">
           <template #default="{ row }">
-            <el-image
-              v-if="parsePayload(row.payload).imageUrl"
-              :src="parsePayload(row.payload).imageUrl"
-              style="width: 48px; height: 48px"
-              fit="cover"
-            />
+            <el-image v-if="parsePayload(row.payload).imageUrl" :src="parsePayload(row.payload).imageUrl"
+              style="width: 48px; height: 48px" fit="cover" />
           </template>
         </el-table-column>
-        <el-table-column prop="contentType" label="類型" width="110" />
+        <el-table-column prop="contentType" label="类型" width="110" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openItemDialog(row)">編輯</el-button>
+            <el-button link type="primary" @click="openItemDialog(row)">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-drawer>
 
-    <el-dialog
-      v-model="itemDialogVisible"
-      :title="editingItemId ? '編輯內容項' : '新增內容項'"
-      width="560px"
-      destroy-on-close
-      @closed="resetItemForm"
-    >
+    <el-dialog v-model="itemDialogVisible" :title="editingItemId ? '编辑内容项' : '添加内容项'" width="560px" destroy-on-close
+      @closed="resetItemForm">
       <el-form :model="itemForm" label-width="110px">
-        <el-form-item label="圖片">
+        <el-form-item label="图片">
           <div class="img-row">
-            <el-input v-model="visualForm.imageUrl" placeholder="圖片 URL" />
+            <el-input v-model="visualForm.imageUrl" placeholder="图片 URL" />
             <el-upload :show-file-list="false" :http-request="handleImageUpload">
-              <el-button type="primary" plain>上傳</el-button>
+              <el-button type="primary" plain>上传</el-button>
             </el-upload>
           </div>
         </el-form-item>
-        <el-form-item label="鏈接">
-          <el-input v-model="visualForm.linkUrl" placeholder="可選，小程序 path 或 H5" />
+        <el-form-item label="链接">
+          <el-input v-model="visualForm.linkUrl" placeholder="可选，小程序 path 或 H5" />
         </el-form-item>
-        <el-form-item label="標題">
-          <el-input v-model="visualForm.title" placeholder="可選" />
+        <el-form-item label="标题">
+          <el-input v-model="visualForm.title" placeholder="可选" />
         </el-form-item>
         <el-form-item label="渠道">
           <el-select v-model="itemForm.channel" style="width: 100%">
@@ -144,22 +119,15 @@
             <el-option label="微信小程序" value="mp-weixin" />
           </el-select>
         </el-form-item>
-        <el-form-item label="生效時間">
-          <el-date-picker
-            v-model="itemTimeRange"
-            type="datetimerange"
-            range-separator="至"
-            start-placeholder="開始"
-            end-placeholder="結束"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
+        <el-form-item label="生效时间">
+          <el-date-picker v-model="itemTimeRange" type="datetimerange" range-separator="至" start-placeholder="开始"
+            end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
         </el-form-item>
         <el-form-item label="App 最低版本">
-          <el-input v-model="itemForm.minAppVersion" placeholder="可選" />
+          <el-input v-model="itemForm.minAppVersion" placeholder="可选，如 1.0.0" />
         </el-form-item>
         <el-form-item label="App 最高版本">
-          <el-input v-model="itemForm.maxAppVersion" placeholder="可選" />
+          <el-input v-model="itemForm.maxAppVersion" placeholder="可选，如 1.0.0" />
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="itemForm.sortOrder" :min="0" />
@@ -264,9 +232,9 @@ async function load() {
       typeof e === 'object' && e !== null && 'message' in e
         ? String((e as { message?: string }).message ?? '')
         : ''
-    if (msg.includes('页面不存在') || msg.includes('頁面')) {
+    if (msg.includes('页面不存在') || msg.includes('页面未建立')) {
       pageNotFound.value = true
-      ElMessage.error('頁面不存在，可透過側欄「新增页面」建立此 pageKey')
+      ElMessage.error('页面不存在，可透过侧栏「新增页面」建立此 pageKey')
     }
   } finally {
     loading.value = false
@@ -298,14 +266,14 @@ async function doFork() {
 
 async function doPublish() {
   try {
-    await ElMessageBox.confirm('確定將當前草稿發布為線上版本？', '發布', { type: 'warning' })
+    await ElMessageBox.confirm('确定将当前草稿发布为线上版本？', '发布', { type: 'warning' })
   } catch {
     return
   }
   publishing.value = true
   try {
     await publishPage(pageKey.value)
-    ElMessage.success('發布成功')
+    ElMessage.success('发布成功')
     await load()
   } finally {
     publishing.value = false
@@ -323,7 +291,7 @@ async function submitNewSlot() {
   slotSaving.value = true
   try {
     await createSlot(pageKey.value, { slotType: newSlotType.value, sortOrder: nextOrder })
-    ElMessage.success('已新增槽位')
+    ElMessage.success('已添加槽位')
     slotDialogVisible.value = false
     await load()
   } finally {
@@ -342,7 +310,7 @@ async function moveSlot(index: number, delta: number) {
   try {
     await updateSlot(pageKey.value, a.id, { sortOrder: orderB })
     await updateSlot(pageKey.value, b.id, { sortOrder: orderA })
-    ElMessage.success('已調整順序')
+    ElMessage.success('已调整顺序')
     await load()
   } catch {
     // interceptor
@@ -392,7 +360,7 @@ async function handleImageUpload(options: UploadRequestOptions) {
   try {
     const res = await uploadImage(raw)
     visualForm.value.imageUrl = res.data.url
-    ElMessage.success('上傳成功')
+    ElMessage.success('上传成功')
     fileOptions.onSuccess(res)
   } catch (e: unknown) {
     fileOptions.onError(e as any)
@@ -402,7 +370,7 @@ async function handleImageUpload(options: UploadRequestOptions) {
 async function submitItem() {
   const slot = activeSlot.value
   if (!slot) {
-    ElMessage.warning('請先選擇槽位')
+    ElMessage.warning('请先选择槽位')
     return
   }
   const err = validateVisualPayload(visualForm.value)
@@ -411,7 +379,7 @@ async function submitItem() {
     return
   }
   if (!isSlotType(slot.slotType)) {
-    ElMessage.error('不支持的槽位類型')
+    ElMessage.error('不支持的槽位类型')
     return
   }
   const contentType = CONTENT_TYPE_BY_SLOT[slot.slotType]
@@ -435,10 +403,10 @@ async function submitItem() {
   try {
     if (editingItemId.value != null) {
       await updateItem(editingItemId.value, body)
-      ElMessage.success('已保存')
+      ElMessage.success('已更新')
     } else {
       await createItem(pageKey.value, slot.id, body)
-      ElMessage.success('已新增')
+      ElMessage.success('已添加')
     }
     itemDialogVisible.value = false
     await load()
