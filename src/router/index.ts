@@ -25,20 +25,31 @@ const routes: RouteRecordRaw[] = [
         path: 'app-mgmt',
         name: 'AppMgmt',
         component: ParentView,
-        redirect: '/app-mgmt/home',
+        redirect: '/app-mgmt/page/home',
         meta: { title: 'APP管理', icon: 'Iphone' },
         children: [
           {
-            path: 'home',
-            name: 'AppHome',
+            path: 'page-create',
+            name: 'AppPageCreate',
+            component: () => import('@/views/app-page-create/index.vue'),
+            meta: { title: '新增页面', hidden: true },
+          },
+          {
+            path: 'page/:pageKey',
+            name: 'AppPageEditor',
             component: () => import('@/views/app-home/index.vue'),
-            meta: { title: 'APP 首頁' },
+            meta: { title: 'APP 页面', hidden: true },
+          },
+          {
+            path: 'home',
+            redirect: '/app-mgmt/page/home',
+            meta: { hidden: true },
           },
         ],
       },
       {
         path: 'app-home',
-        redirect: '/app-mgmt/home',
+        redirect: '/app-mgmt/page/home',
       },
       {
         path: 'goods',
