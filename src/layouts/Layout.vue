@@ -14,7 +14,17 @@
         router
       >
         <template v-for="item in menuRoutes" :key="item.path">
-          <el-sub-menu v-if="visibleChildren(item).length" :index="'/' + item.path">
+          <el-sub-menu v-if="item.path === 'app-mgmt'" :index="'/' + item.path">
+            <template #title>
+              <el-icon><component :is="item.meta?.icon" /></el-icon>
+              <span>{{ item.meta?.title }}</span>
+            </template>
+            <el-menu-item index="/app-mgmt/page-create"><span>新增页面</span></el-menu-item>
+            <el-menu-item v-for="p in appPages" :key="p.pageKey" :index="'/app-mgmt/page/' + p.pageKey">
+              <span>{{ p.title?.trim() ? p.title : p.pageKey }}</span>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu v-else-if="visibleChildren(item).length" :index="'/' + item.path">
             <template #title>
               <el-icon><component :is="item.meta?.icon" /></el-icon>
               <span>{{ item.meta?.title }}</span>
@@ -33,6 +43,7 @@
           </el-menu-item>
         </template>
       </el-menu>
+      <p v-if="appPagesError" class="menu-pages-error">{{ appPagesError }}</p>
     </el-aside>
     <el-container direction="vertical">
       <el-header class="layout-header">
@@ -100,12 +111,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { updatePassword } from '@/api/auth'
+import { useAppPageList } from '@/composables/useAppPageList'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { pages: appPages, loadError: appPagesError, fetchAppPages } = useAppPageList()
 
 onMounted(() => {
+  if (localStorage.getItem('token')) {
+    fetchAppPages()
+  }
   if (authStore.token && !authStore.admin) {
     authStore.fetchUserInfo().catch(() => {
       authStore.logout()
@@ -221,6 +237,13 @@ function refreshCurrentPage() {
   font-size: 16px;
   font-weight: 600;
   border-bottom: 1px solid #2d3038;
+}
+
+.menu-pages-error {
+  margin: 8px 12px 0;
+  font-size: 12px;
+  color: #f56c6c;
+  line-height: 1.4;
 }
 
 .layout-menu {
