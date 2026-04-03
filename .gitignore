@@ -17,6 +17,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 .idea/
+.vscode/
+
+# Test / coverage
+coverage/
 
 # TypeScript / Vite generated
 *.tsbuildinfo
