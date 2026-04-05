@@ -221,7 +221,7 @@ import {
   updateItem,
 } from '@/api/appCms'
 import { fetchActivityList, getActivity } from '@/api/activity'
-import { uploadImage } from '@/api/upload'
+import { uploadCmsFile } from '@/utils/oss'
 import type { ActivityVO } from '@/types/activity'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
 import {
@@ -530,11 +530,12 @@ async function handleImageUpload(options: UploadRequestOptions) {
   const fileOptions = options
   const raw = fileOptions.file as File
   try {
-    const res = await uploadImage(raw)
-    visualForm.value.imageUrl = res.data.url
+    const result = await uploadCmsFile(raw, pageKey.value)
+    visualForm.value.imageUrl = result.objectKey
     ElMessage.success('上传成功')
-    fileOptions.onSuccess(res)
+    fileOptions.onSuccess(result)
   } catch (e: unknown) {
+    ElMessage.error(e instanceof Error ? e.message : '上传失败')
     fileOptions.onError(e as any)
   }
 }
