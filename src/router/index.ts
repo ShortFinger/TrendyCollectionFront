@@ -91,10 +91,10 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '盒柜仓库', icon: 'Box' },
       },
       {
-        path: 'zones',
-        name: 'Zones',
-        component: () => import('@/views/zones/index.vue'),
-        meta: { title: '分区管理', icon: 'Grid' },
+        path: 'categories',
+        name: 'Categories',
+        component: () => import('@/views/categories/index.vue'),
+        meta: { title: '分类管理', icon: 'Grid' },
       },
       {
         path: 'gameplay',
