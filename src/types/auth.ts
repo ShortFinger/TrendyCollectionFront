@@ -35,7 +35,7 @@ export interface PermissionVO {
   parentId: string
   name: string
   code: string
-  type: number
+  type: string
   path: string
   icon: string
   sortOrder: number

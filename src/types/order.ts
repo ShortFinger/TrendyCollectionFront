@@ -1,10 +1,10 @@
 import type { PageQuery } from './api'
 
 export interface OrderQueryRequest extends PageQuery {
-  status?: number
-  payStatus?: number
-  deliverStatus?: number
-  orderType?: number
+  status?: string
+  payStatus?: string
+  deliverStatus?: string
+  orderType?: string
   keyword?: string
   startTime?: string
   endTime?: string
@@ -16,14 +16,14 @@ export interface OrderVO {
   id: string
   number: string
   userId: string
-  status: number
-  payStatus: number
-  deliverStatus: number
-  aftersaleStatus: number
+  status: string
+  payStatus: string
+  deliverStatus: string
+  aftersaleStatus: string
   payType: string
   paySubType: string
-  productType: number
-  orderType: number
+  productType: string
+  orderType: string
   productTotal: number
   skuTotal: number
   productMoneyPrice: number

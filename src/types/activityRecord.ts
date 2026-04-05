@@ -13,7 +13,7 @@ export interface ActivityRecordVO {
   id: string
   activityId: string
   activityTitle: string
-  activityType: number
+  activityType: string
   userId: string
   skuId: string
   skuName: string

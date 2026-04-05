@@ -2,8 +2,9 @@ import type { PageQuery } from './api'
 
 export interface ActivityQueryRequest extends PageQuery {
   keyword?: string
-  status?: number
-  activityType?: number
+  status?: string
+  activityType?: string
+  categoryId?: string
 }
 
 export interface ActivityVO {
@@ -22,20 +23,21 @@ export interface ActivityVO {
   visitTotal: number
   perUserLimit: number
   sales: number
-  status: number
+  status: string
   multiBuyDiscount: number
   openBoxAnimation: string
   tags: string
   joinUserTotal: number
   isRandomRewardEnabled: number
-  activityType: number
+  activityType: string
   boxCount: number
   /** 一番赏最终赏 SKU，空表示不开启 */
   finalPrizeSkuId?: string | null
   /** 是否开启榜单 0/1 */
   rank: number
   amountLimit: number
-  specialAreaId: string
+  categoryId?: string | null
+  categoryTitle?: string | null
   createTime: string
   updateTime: string
 }
@@ -55,13 +57,13 @@ export interface ActivitySaveRequest {
   multiBuyDiscount?: number
   openBoxAnimation?: string
   tags?: string
-  activityType?: number
+  activityType?: string
   boxCount?: number
   /** 一番赏最终赏 SKU，空表示不开启 */
   finalPrizeSkuId?: string | null
   rank?: number
   amountLimit?: number
-  specialAreaId?: string
+  categoryId?: string
   isRandomRewardEnabled?: number
 }
 
@@ -94,7 +96,7 @@ export interface LotterySimulationPerUser {
 
 export interface LotterySimulationResponse {
   activityId: string
-  activityType: number
+  activityType: string
   participantCount: number
   drawsPerPerson: number
   totalDraws: number
@@ -112,5 +114,5 @@ export interface LotterySimulationResponse {
 }
 
 export interface ActivityStatusUpdateRequest {
-  status: number
+  status: string
 }
