@@ -66,6 +66,7 @@
           <el-select v-model="newSlotType" style="width: 100%">
             <el-option label="轮播行（banner_row）" value="banner_row" />
             <el-option label="图标宫格（icon_grid）" value="icon_grid" />
+            <el-option label="活动卡片网格（activity_card_grid）" value="activity_card_grid" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -81,9 +82,17 @@
       </div>
       <el-table :data="activeSlot?.items ?? []" size="small" border>
         <el-table-column prop="sortOrder" label="序" width="56" />
-        <el-table-column label="预览" width="72">
+        <el-table-column label="预览" width="160">
           <template #default="{ row }">
-            <el-image v-if="parsePayload(row.payload).imageUrl" :src="parsePayload(row.payload).imageUrl"
+            <template v-if="row.contentType === 'activity_card_ref'">
+              <div class="preview-activity">
+                <div class="preview-activity-id">{{ activityCardPreview(row).activityId || '—' }}</div>
+                <div v-if="activityCardPreview(row).title" class="preview-activity-title">
+                  {{ activityCardPreview(row).title }}
+                </div>
+              </div>
+            </template>
+            <el-image v-else-if="parsePayload(row.payload).imageUrl" :src="parsePayload(row.payload).imageUrl"
               style="width: 48px; height: 48px" fit="cover" />
           </template>
         </el-table-column>
@@ -96,23 +105,79 @@
       </el-table>
     </el-drawer>
 
-    <el-dialog v-model="itemDialogVisible" :title="editingItemId ? '编辑内容项' : '添加内容项'" width="560px" destroy-on-close
+    <el-dialog v-model="itemDialogVisible" :title="editingItemId ? '编辑内容项' : '添加内容项'" width="620px" destroy-on-close
       @closed="resetItemForm">
       <el-form :model="itemForm" label-width="110px">
-        <el-form-item label="图片">
-          <div class="img-row">
-            <el-input v-model="visualForm.imageUrl" placeholder="图片 URL" />
-            <el-upload :show-file-list="false" :http-request="handleImageUpload">
-              <el-button type="primary" plain>上传</el-button>
-            </el-upload>
-          </div>
-        </el-form-item>
-        <el-form-item label="链接">
-          <el-input v-model="visualForm.linkUrl" placeholder="可选，小程序 path 或 H5" />
-        </el-form-item>
-        <el-form-item label="标题">
-          <el-input v-model="visualForm.title" placeholder="可选" />
-        </el-form-item>
+        <template v-if="isActivityItemMode">
+          <el-form-item label="活动" required>
+            <el-select
+              v-model="activityCardForm.activityId"
+              class="activity-select"
+              filterable
+              remote
+              clearable
+              reserve-keyword
+              placeholder="搜索标题或选择活动"
+              :remote-method="remoteSearchActivities"
+              :loading="activitySearchLoading"
+              @change="onActivitySelectChange"
+            >
+              <el-option
+                v-for="a in activityOptions"
+                :key="a.id"
+                :label="`${a.title} (${a.id})`"
+                :value="a.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="活动 ID">
+            <el-input v-model="activityCardForm.activityId" placeholder="可手填或由上栏选择" @blur="onActivityIdBlur" />
+          </el-form-item>
+          <el-form-item label="售价（只读）">
+            <el-input :model-value="activityMoneyPriceDisplay" disabled placeholder="选择活动后显示 moneyPrice" />
+          </el-form-item>
+          <el-divider content-position="left">可选覆盖</el-divider>
+          <el-form-item label="标题">
+            <el-input v-model="activityCardForm.title" placeholder="覆盖活动标题" />
+          </el-form-item>
+          <el-form-item label="封面 URL">
+            <el-input v-model="activityCardForm.coverUrl" placeholder="覆盖 squareThumb 等" />
+          </el-form-item>
+          <el-form-item label="标签">
+            <el-input v-model="activityCardForm.tag" placeholder="覆盖展示标签" />
+          </el-form-item>
+          <el-form-item label="描述">
+            <el-input v-model="activityCardForm.desc" type="textarea" :rows="2" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="作者">
+            <el-input v-model="activityCardForm.author" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="点赞数">
+            <el-input v-model="activityCardForm.likes" placeholder="可选数字" />
+          </el-form-item>
+          <el-form-item label="跳转类型">
+            <el-input v-model="activityCardForm.jumpType" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="跳转 URL">
+            <el-input v-model="activityCardForm.jumpUrl" placeholder="可选 path 或 H5" />
+          </el-form-item>
+        </template>
+        <template v-else>
+          <el-form-item label="图片">
+            <div class="img-row">
+              <el-input v-model="visualForm.imageUrl" placeholder="图片 URL" />
+              <el-upload :show-file-list="false" :http-request="handleImageUpload">
+                <el-button type="primary" plain>上传</el-button>
+              </el-upload>
+            </div>
+          </el-form-item>
+          <el-form-item label="链接">
+            <el-input v-model="visualForm.linkUrl" placeholder="可选，小程序 path 或 H5" />
+          </el-form-item>
+          <el-form-item label="标题">
+            <el-input v-model="visualForm.title" placeholder="可选" />
+          </el-form-item>
+        </template>
         <el-form-item label="渠道">
           <el-select v-model="itemForm.channel" style="width: 100%">
             <el-option label="全部" value="all" />
@@ -155,7 +220,9 @@ import {
   createItem,
   updateItem,
 } from '@/api/appCms'
+import { fetchActivityList, getActivity } from '@/api/activity'
 import { uploadImage } from '@/api/upload'
+import type { ActivityVO } from '@/types/activity'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
 import {
   CONTENT_TYPE_BY_SLOT,
@@ -165,7 +232,12 @@ import {
   validateVisualPayload,
   isSlotType,
   defaultPayload,
+  defaultActivityCardRefPayload,
+  buildActivityCardRefPayload,
+  parseActivityCardRefPayload,
+  validateActivityCardRefPayload,
   type VisualPayload,
+  type SlotType,
 } from '@/utils/appCmsPayload'
 
 const route = useRoute()
@@ -187,7 +259,7 @@ const pageDisplayLabel = computed(() => {
 })
 
 const slotDialogVisible = ref(false)
-const newSlotType = ref<'banner_row' | 'icon_grid'>('banner_row')
+const newSlotType = ref<SlotType>('banner_row')
 const slotSaving = ref(false)
 
 const drawerVisible = ref(false)
@@ -197,6 +269,10 @@ const itemDialogVisible = ref(false)
 const itemSaving = ref(false)
 const editingItemId = ref<number | null>(null)
 const visualForm = ref<VisualPayload>(defaultPayload())
+const activityCardForm = ref(defaultActivityCardRefPayload())
+const activityOptions = ref<ActivityVO[]>([])
+const activitySearchLoading = ref(false)
+const readonlyActivityMoneyPrice = ref<number | null>(null)
 const itemTimeRange = ref<[string, string] | null>(null)
 const itemForm = ref({
   sortOrder: 0,
@@ -213,6 +289,73 @@ const sortedSlots = computed(() => {
 function slotLabel(type: string) {
   if (isSlotType(type)) return SLOT_TYPE_LABEL[type]
   return type
+}
+
+function activityCardPreview(row: EditorItemRow) {
+  const p = parseActivityCardRefPayload(row.payload)
+  return { activityId: p.activityId.trim(), title: p.title?.trim() || '' }
+}
+
+const activityMoneyPriceDisplay = computed(() =>
+  readonlyActivityMoneyPrice.value == null ? '' : String(readonlyActivityMoneyPrice.value),
+)
+
+/** 活动卡片表单项：槽位为 activity_card_grid，或编辑中的项为 activity_card_ref */
+const isActivityItemMode = computed(() => {
+  const slot = activeSlot.value
+  if (!slot) return false
+  if (slot.slotType === 'activity_card_grid') return true
+  if (editingItemId.value != null) {
+    const item = slot.items?.find((i) => i.id === editingItemId.value)
+    if (item?.contentType === 'activity_card_ref') return true
+  }
+  return false
+})
+
+async function refreshActivityMoneyPrice(activityId: string) {
+  const id = activityId.trim()
+  if (!id) {
+    readonlyActivityMoneyPrice.value = null
+    return
+  }
+  try {
+    const { data } = await getActivity(id)
+    readonlyActivityMoneyPrice.value = data.moneyPrice ?? null
+  } catch {
+    readonlyActivityMoneyPrice.value = null
+  }
+}
+
+function ensureActivityOption(row: ActivityVO) {
+  if (!activityOptions.value.some((a) => a.id === row.id)) {
+    activityOptions.value = [row, ...activityOptions.value]
+  }
+}
+
+async function remoteSearchActivities(query: string) {
+  activitySearchLoading.value = true
+  try {
+    const { data } = await fetchActivityList({
+      keyword: query?.trim() || undefined,
+      page: 1,
+      size: 15,
+    })
+    activityOptions.value = data.records ?? []
+  } finally {
+    activitySearchLoading.value = false
+  }
+}
+
+async function onActivitySelectChange(id: string | null | undefined) {
+  if (!id?.trim()) {
+    readonlyActivityMoneyPrice.value = null
+    return
+  }
+  await refreshActivityMoneyPrice(id)
+}
+
+async function onActivityIdBlur() {
+  await refreshActivityMoneyPrice(activityCardForm.value.activityId)
 }
 
 async function load() {
@@ -324,8 +467,14 @@ function openItemsDrawer(slot: EditorSlotRow) {
 
 function openItemDialog(item: EditorItemRow | null) {
   editingItemId.value = item?.id ?? null
+  activityOptions.value = []
+  readonlyActivityMoneyPrice.value = null
+
+  const slot = activeSlot.value
+  const treatAsActivity =
+    slot?.slotType === 'activity_card_grid' || item?.contentType === 'activity_card_ref'
+
   if (item) {
-    visualForm.value = parsePayload(item.payload)
     itemForm.value.sortOrder = item.sortOrder ?? 0
     itemForm.value.channel = item.channel?.trim() ? item.channel : 'all'
     itemForm.value.minAppVersion = item.minAppVersion ?? ''
@@ -335,10 +484,30 @@ function openItemDialog(item: EditorItemRow | null) {
     } else {
       itemTimeRange.value = null
     }
+    if (treatAsActivity) {
+      activityCardForm.value = parseActivityCardRefPayload(item.payload)
+      const aid = activityCardForm.value.activityId.trim()
+      if (aid) {
+        void (async () => {
+          try {
+            const { data } = await getActivity(aid)
+            ensureActivityOption(data)
+            readonlyActivityMoneyPrice.value = data.moneyPrice ?? null
+          } catch {
+            readonlyActivityMoneyPrice.value = null
+          }
+        })()
+      }
+      visualForm.value = defaultPayload()
+    } else {
+      visualForm.value = parsePayload(item.payload)
+      activityCardForm.value = defaultActivityCardRefPayload()
+    }
   } else {
     visualForm.value = defaultPayload()
+    activityCardForm.value = defaultActivityCardRefPayload()
     itemForm.value = {
-      sortOrder: (activeSlot.value?.items?.length ?? 0),
+      sortOrder: activeSlot.value?.items?.length ?? 0,
       channel: 'all',
       minAppVersion: '',
       maxAppVersion: '',
@@ -351,6 +520,9 @@ function openItemDialog(item: EditorItemRow | null) {
 function resetItemForm() {
   editingItemId.value = null
   visualForm.value = defaultPayload()
+  activityCardForm.value = defaultActivityCardRefPayload()
+  activityOptions.value = []
+  readonlyActivityMoneyPrice.value = null
   itemTimeRange.value = null
 }
 
@@ -373,20 +545,41 @@ async function submitItem() {
     ElMessage.warning('请先选择槽位')
     return
   }
-  const err = validateVisualPayload(visualForm.value)
-  if (err) {
-    ElMessage.error(err)
-    return
-  }
   if (!isSlotType(slot.slotType)) {
     ElMessage.error('不支持的槽位类型')
     return
   }
-  const contentType = CONTENT_TYPE_BY_SLOT[slot.slotType]
+
+  const activityMode =
+    slot.slotType === 'activity_card_grid' ||
+    (editingItemId.value != null &&
+      slot.items?.find((i) => i.id === editingItemId.value)?.contentType === 'activity_card_ref')
+
+  let contentType: string
+  let payloadJson: string
+
+  if (activityMode) {
+    const errA = validateActivityCardRefPayload(activityCardForm.value)
+    if (errA) {
+      ElMessage.error(errA)
+      return
+    }
+    contentType = 'activity_card_ref'
+    payloadJson = buildActivityCardRefPayload(activityCardForm.value)
+  } else {
+    const err = validateVisualPayload(visualForm.value)
+    if (err) {
+      ElMessage.error(err)
+      return
+    }
+    contentType = CONTENT_TYPE_BY_SLOT[slot.slotType]
+    payloadJson = buildPayload(visualForm.value)
+  }
+
   const body: Record<string, unknown> = {
     sortOrder: itemForm.value.sortOrder,
     contentType,
-    payload: buildPayload(visualForm.value),
+    payload: payloadJson,
     channel: itemForm.value.channel || 'all',
     minAppVersion: itemForm.value.minAppVersion || null,
     maxAppVersion: itemForm.value.maxAppVersion || null,
@@ -489,5 +682,25 @@ async function submitItem() {
 
 .img-row .el-input {
   flex: 1;
+}
+
+.activity-select {
+  width: 100%;
+}
+
+.preview-activity {
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.preview-activity-id {
+  font-family: ui-monospace, monospace;
+  color: #606266;
+}
+
+.preview-activity-title {
+  color: #303133;
+  margin-top: 4px;
 }
 </style>
