@@ -1,6 +1,6 @@
 <template>
   <KujiActivityList
-    :activity-type="7"
+    activity-type="ICHIBAN"
     list-base-path="/gameplay/ichiban"
     :labels="KUJI_ICHIBAN_LABELS"
   />

@@ -82,14 +82,14 @@ for (const a of activities) {
         join_user_total, is_random_reward_enabled, random_reward_odds, random_reward_total,
         random_reward_id, bg_img, corner_mark, lower_left_corner_mark, upper_left_corner_mark,
         lower_right_corner_mark, act_type, is_taskplan, amount_limit, upper_right_corner_mark,
-        activity_config, special_area_id, is_delete, created_at, updated_at)
+        activity_config, category_id, is_delete, created_at, updated_at)
        VALUES (?, ?, ?, ?, '', '', ?, ?,
                0, 0, 5, ?, '0', ?, ?,
                0, '', '', 0,
                0, 0, 0.00, 0,
                '0', '', '', '', '',
                '', ?, 0, 0, '',
-               '{}', '0', 0, NOW(), NOW())`,
+               '{}', NULL, 0, NOW(), NOW())`,
       [a.id, a.uuid, a.title, a.thumb, a.moneyPrice, a.scorePrice, a.status, a.stock, a.sales, a.actType]
     );
     console.log(`  Inserted activity: ${a.title}`);

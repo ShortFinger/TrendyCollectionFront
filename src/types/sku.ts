@@ -2,7 +2,7 @@ import type { PageQuery } from './api'
 
 export interface SkuQueryRequest extends PageQuery {
   keyword?: string
-  status?: number
+  status?: string
   /** 一番赏：按箱子筛选 SKU */
   boxId?: string
   /** 仅未绑定箱子的 SKU（box_id 为空） */
@@ -14,7 +14,7 @@ export interface SkuVO {
   skuCode: string
   productIds: string
   activityId: string
-  activityType: number
+  activityType: string
   boxId?: string
   rewardLevelId?: string
   rewardLevelTitle?: string
@@ -30,7 +30,7 @@ export interface SkuVO {
   originalPrice: number
   stockQuantity: number
   imageUrl: string
-  status: number
+  status: string
   openBoxAnimation: string
   frontImage: string
   backImage: string
@@ -45,7 +45,7 @@ export interface SkuVO {
 export interface SkuSaveRequest {
   skuCode?: string
   productIds?: string
-  activityType?: number
+  activityType?: string
   /** 传入时按 stockQuantity 在 activity_box_item 中生成对应条数 */
   boxId?: string
   rewardLevelId?: string
@@ -58,7 +58,7 @@ export interface SkuSaveRequest {
   originalPrice?: number
   stockQuantity: number
   imageUrl?: string
-  status?: number
+  status?: string
   openBoxAnimation?: string
   frontImage?: string
   backImage?: string

@@ -11,10 +11,10 @@
       </template>
       <template v-if="activity">
         <el-descriptions :column="3" border>
-          <el-descriptions-item :label="activity?.activityType === 8 ? '活动名称' : '赏池名称'">{{ activity.title }}</el-descriptions-item>
+          <el-descriptions-item :label="activity?.activityType === 'UNLIMITED' ? '活动名称' : '赏池名称'">{{ activity.title }}</el-descriptions-item>
           <el-descriptions-item label="活动 ID">{{ activity.id }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="activity.status === 1 ? 'success' : 'info'">{{ activity.status === 1 ? '上架' : '下架' }}</el-tag>
+            <el-tag :type="activity.status === 'ON_SHELF' ? 'success' : 'info'">{{ activity.status === 'ON_SHELF' ? '上架' : '下架' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="单抽价(¥)">¥{{ activity.moneyPrice }}</el-descriptions-item>
           <el-descriptions-item label="积分价">{{ activity.scorePrice }}</el-descriptions-item>
@@ -372,7 +372,7 @@
         </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '上架' : '下架' }}</el-tag>
+            <el-tag :type="row.status === 'ON_SHELF' ? 'success' : 'info'" size="small">{{ row.status === 'ON_SHELF' ? '上架' : '下架' }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -550,6 +550,12 @@ import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
 import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
+import {
+  ActivityTypeCode,
+  SkuMarketActivityType,
+  isKujiActivityFamily,
+  boxStatusTag as boxStatusTagFromCodes,
+} from '@/constants/domainCodes'
 
 interface DraftLinkedSku {
   id: string
@@ -589,14 +595,8 @@ const kujiKindShortLabel = computed(() =>
 const backListTitle = computed(() => `返回${kujiKindShortLabel.value}列表`)
 
 const poolInfoCardTitle = computed(() =>
-  activity.value?.activityType === 8 ? '活动信息' : '赏池信息'
+  activity.value?.activityType === ActivityTypeCode.UNLIMITED ? '活动信息' : '赏池信息'
 )
-
-function kujiActivityTypeForSku(): 7 | 8 {
-  const t = activity.value?.activityType
-  if (t === 7 || t === 8) return t
-  return 7
-}
 
 function goBackToActivityList() {
   router.push(activityListPath.value)
@@ -684,7 +684,7 @@ const levelSumOk = computed(() => {
 const hideTierWeightUi = computed(() => {
   const a = activity.value
   if (!a) return true
-  return a.activityType === 7 || a.activityType === 8
+  return isKujiActivityFamily(a.activityType)
 })
 
 const loading = ref(false)
@@ -797,19 +797,15 @@ const boxLimitReached = computed(() => {
   return total.value >= activity.value.boxCount
 })
 
-function boxStatusTag(status: number) {
-  switch (status) {
-    case 1: return { type: 'success' as const, label: '进行中' }
-    case 2: return { type: 'info' as const, label: '已抽完' }
-    default: return { type: 'warning' as const, label: '未开启' }
-  }
+function boxStatusTag(status: string) {
+  return boxStatusTagFromCodes(status)
 }
 
 function buildPrizePayload(): SkuSaveRequest {
   return {
     name: prizeForm.name,
     productIds: prizeForm.selectedProductIds.length > 0 ? JSON.stringify(prizeForm.selectedProductIds) : undefined,
-    activityType: kujiActivityTypeForSku(),
+    activityType: SkuMarketActivityType.LOTTERY,
     costPrice: prizeForm.costPrice,
     recyclePrice: prizeForm.recyclePrice,
     originalPrice: prizeForm.originalPrice,

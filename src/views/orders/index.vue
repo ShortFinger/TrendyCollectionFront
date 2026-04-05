@@ -83,8 +83,14 @@
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleDetail(row.id)">详情</el-button>
-            <el-button v-if="row.payStatus === 2 && row.deliverStatus < 3" link type="success" size="small" @click="handleDeliver(row)">发货</el-button>
-            <el-button v-if="row.status !== 2 && row.status !== 9" link type="danger" size="small" @click="handleClose(row)">关闭</el-button>
+            <el-button
+              v-if="row.payStatus === 'PAID' && canManualDeliver(row.deliverStatus)"
+              link
+              type="success"
+              size="small"
+              @click="handleDeliver(row)"
+            >发货</el-button>
+            <el-button v-if="row.status !== 'CLOSED' && row.status !== 'COMPLETED'" link type="danger" size="small" @click="handleClose(row)">关闭</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -140,12 +146,31 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listOrders, getOrderDetail, deliverOrder, closeOrder, exportOrders, getOrderStatusCounts } from '@/api/order'
 import type { OrderVO, OrderDetailVO, OrderStatusCountVO } from '@/types/order'
+import {
+  PayStatusCode,
+  DeliverStatusCode,
+  OrderStatusCode,
+  canManualDeliver,
+  orderStatusText,
+  orderStatusType,
+  payStatusText,
+  payStatusType,
+  deliverStatusText,
+  deliverStatusType,
+} from '@/constants/domainCodes'
 
 const loading = ref(false)
 const list = ref<OrderVO[]>([])
 const total = ref(0)
 const activeTab = ref('all')
-const query = reactive({ page: 1, size: 10, keyword: '', status: undefined as number | undefined, payStatus: undefined as number | undefined, deliverStatus: undefined as number | undefined })
+const query = reactive({
+  page: 1,
+  size: 10,
+  keyword: '',
+  status: undefined as string | undefined,
+  payStatus: undefined as string | undefined,
+  deliverStatus: undefined as string | undefined,
+})
 const statusCounts = reactive<OrderStatusCountVO>({ unpaidCount: 0, paidCount: 0, shippedCount: 0 })
 const dateRange = ref<[string, string] | null>(null)
 const amountRange = reactive({ min: undefined as number | undefined, max: undefined as number | undefined })
@@ -160,11 +185,11 @@ const deliverForm = reactive({ expressCompany: '', expressNo: '' })
 
 const tabToFilter: Record<string, Partial<typeof query>> = {
   all: { status: undefined, payStatus: undefined, deliverStatus: undefined },
-  unpaid: { payStatus: 0, status: undefined, deliverStatus: undefined },
-  paid: { payStatus: 2, status: undefined, deliverStatus: undefined },
-  shipped: { deliverStatus: 3, status: undefined, payStatus: undefined },
-  completed: { status: 9, payStatus: undefined, deliverStatus: undefined },
-  closed: { status: 2, payStatus: undefined, deliverStatus: undefined },
+  unpaid: { payStatus: PayStatusCode.UNPAID, status: undefined, deliverStatus: undefined },
+  paid: { payStatus: PayStatusCode.PAID, status: undefined, deliverStatus: undefined },
+  shipped: { deliverStatus: DeliverStatusCode.SHIPPED, status: undefined, payStatus: undefined },
+  completed: { status: OrderStatusCode.COMPLETED, payStatus: undefined, deliverStatus: undefined },
+  closed: { status: OrderStatusCode.CLOSED, payStatus: undefined, deliverStatus: undefined },
 }
 
 function handleTabChange(tab: string | number) {
@@ -264,13 +289,6 @@ async function handleExport() {
     ElMessage.error('导出失败')
   }
 }
-
-function orderStatusText(s: number) { return { 0: '未确认', 1: '进行中', 2: '已关闭', 9: '已完成' }[s] || '未知' }
-function orderStatusType(s: number) { return { 0: 'info', 1: 'primary', 2: 'danger', 9: 'success' }[s] as any || 'info' }
-function payStatusText(s: number) { return { 0: '未支付', 1: '确认中', 2: '已付款', 3: '免支付' }[s] || '未知' }
-function payStatusType(s: number) { return { 0: 'warning', 1: 'info', 2: 'success', 3: 'info' }[s] as any || 'info' }
-function deliverStatusText(s: number) { return { 0: '待发货', 1: '备货中', 2: '部分发货', 3: '已发货' }[s] || '未知' }
-function deliverStatusType(s: number) { return { 0: 'warning', 1: 'info', 2: 'primary', 3: 'success' }[s] as any || 'info' }
 
 onMounted(() => { fetchData(); fetchStatusCounts() })
 </script>

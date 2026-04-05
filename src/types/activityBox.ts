@@ -1,15 +1,15 @@
 import type { PageQuery } from './api'
 
 export interface ActivityBoxQueryRequest extends PageQuery {
-  boxStatus?: number
+  boxStatus?: string
 }
 
 export interface ActivityBoxVO {
   id: string
   activityId: string
   boxNumber: number
-  activityType: number
-  boxStatus: number
+  activityType: string
+  boxStatus: string
   boxSkuCount: number
   boxItemCount: number
   boxItemLeft: number

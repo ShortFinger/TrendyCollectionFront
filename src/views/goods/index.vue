@@ -10,10 +10,10 @@
           <el-input v-model="keyword" placeholder="商品名称/编号" clearable style="width: 200px" />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filterStatus" clearable placeholder="全部状态" style="width: 140px">
-            <el-option label="上架" :value="1" />
-            <el-option label="下架" :value="0" />
-            <el-option label="待上架" :value="2" />
+          <el-select v-model="filterStatus" clearable placeholder="全部状态" style="width: 160px">
+            <el-option label="上架" value="ON_SHELF" />
+            <el-option label="下架" value="OFF_SHELF" />
+            <el-option label="待上架" value="PENDING_LISTING" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -39,7 +39,7 @@
         </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+            <el-tag :type="productListingTagType(row.status)" size="small">{{ productListingStatusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="updateTime" label="更新时间" min-width="170" />
@@ -123,9 +123,9 @@
         <el-divider content-position="left">其他</el-divider>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" style="width: 200px">
-            <el-option label="上架" :value="1" />
-            <el-option label="下架" :value="0" />
-            <el-option label="待上架" :value="2" />
+            <el-option label="上架" value="ON_SHELF" />
+            <el-option label="下架" value="OFF_SHELF" />
+            <el-option label="待上架" value="PENDING_LISTING" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -143,12 +143,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '@/api/product'
 import type { ProductVO, ProductSaveRequest } from '@/types/product'
+import { ProductListingStatus, productListingStatusText, productListingTagType } from '@/constants/domainCodes'
 
 const loading = ref(false)
 const list = ref<ProductVO[]>([])
 const total = ref(0)
 const keyword = ref('')
-const filterStatus = ref<number | undefined>(undefined)
+const filterStatus = ref<string | undefined>(undefined)
 const page = ref(1)
 const size = ref(10)
 
@@ -170,7 +171,7 @@ const defaultForm = (): ProductSaveRequest => ({
   bottomImage: '',
   leftImage: '',
   rightImage: '',
-  status: 1,
+  status: ProductListingStatus.ON_SHELF,
 })
 
 const form = reactive<ProductSaveRequest>(defaultForm())
@@ -267,14 +268,6 @@ async function handleDelete(row: ProductVO) {
   } catch {
     ElMessage.error('删除失败')
   }
-}
-
-function statusText(v: number) {
-  return { 0: '下架', 1: '上架', 2: '待上架' }[v] || '未知'
-}
-
-function statusTagType(v: number) {
-  return { 0: 'info', 1: 'success', 2: 'warning' }[v] as any || 'info'
 }
 
 onMounted(fetchData)

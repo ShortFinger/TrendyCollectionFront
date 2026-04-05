@@ -9,11 +9,13 @@
           <el-input v-model="query.keyword" placeholder="订单号/用户ID" clearable style="width: 200px" />
         </el-form-item>
         <el-form-item label="发货状态">
-          <el-select v-model="query.deliverStatus" placeholder="全部" clearable style="width: 130px">
-            <el-option label="待发货" :value="0" />
-            <el-option label="备货中" :value="1" />
-            <el-option label="部分发货" :value="2" />
-            <el-option label="已发货" :value="3" />
+          <el-select v-model="query.deliverStatus" placeholder="全部" clearable style="width: 160px">
+            <el-option label="待发货" value="PENDING_SHIPMENT" />
+            <el-option label="备货中" value="STOCKING" />
+            <el-option label="部分发货" value="PARTIALLY_SHIPPED" />
+            <el-option label="已发货" value="SHIPPED" />
+            <el-option label="线下核销" value="OFFLINE_VERIFIED" />
+            <el-option label="无需发货" value="NO_SHIPMENT_REQUIRED" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -38,7 +40,7 @@
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.deliverStatus < 3" link type="primary" size="small" @click="handleDeliver(row)">发货</el-button>
+            <el-button v-if="canManualDeliver(row.deliverStatus)" link type="primary" size="small" @click="handleDeliver(row)">发货</el-button>
             <span v-else style="color: #909399; font-size: 12px">已发货</span>
           </template>
         </el-table-column>
@@ -76,11 +78,18 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listOrders, deliverOrder } from '@/api/order'
 import type { OrderVO } from '@/types/order'
+import { PayStatusCode, canManualDeliver, deliverStatusText, deliverStatusType } from '@/constants/domainCodes'
 
 const loading = ref(false)
 const list = ref<OrderVO[]>([])
 const total = ref(0)
-const query = reactive({ page: 1, size: 10, keyword: '', payStatus: 2 as number, deliverStatus: undefined as number | undefined })
+const query = reactive({
+  page: 1,
+  size: 10,
+  keyword: '',
+  payStatus: PayStatusCode.PAID as string,
+  deliverStatus: undefined as string | undefined,
+})
 
 const deliverVisible = ref(false)
 const deliverLoading = ref(false)
@@ -127,9 +136,6 @@ async function confirmDeliver() {
     deliverLoading.value = false
   }
 }
-
-function deliverStatusText(s: number) { return { 0: '待发货', 1: '备货中', 2: '部分发货', 3: '已发货' }[s] || '未知' }
-function deliverStatusType(s: number) { return { 0: 'warning', 1: 'info', 2: 'primary', 3: 'success' }[s] as any || 'info' }
 
 onMounted(fetchData)
 </script>

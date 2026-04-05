@@ -104,11 +104,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { listActivityRecords } from '@/api/activityRecord'
 import type { ActivityRecordVO, ActivityRecordQueryRequest } from '@/types/activityRecord'
-
-const activityTypeMap: Record<number, string> = { 1: '福袋', 2: '连击赏', 4: '欧皇', 5: '能量池', 6: '卡牌' }
-function activityTypeLabel(t: number) {
-  return activityTypeMap[t] ?? String(t)
-}
+import { activityTypeLabel } from '@/constants/domainCodes'
 
 const loading = ref(false)
 const list = ref<ActivityRecordVO[]>([])

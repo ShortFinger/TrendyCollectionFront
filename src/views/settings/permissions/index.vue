@@ -10,9 +10,10 @@
         <el-table-column prop="code" label="权限标识" min-width="150" />
         <el-table-column prop="type" label="类型" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.type === 1" type="primary">菜单</el-tag>
-            <el-tag v-else-if="row.type === 2" type="success">页面</el-tag>
-            <el-tag v-else-if="row.type === 3" type="warning">按钮</el-tag>
+            <el-tag v-if="row.type === 'MENU'" type="primary">菜单</el-tag>
+            <el-tag v-else-if="row.type === 'PAGE'" type="success">页面</el-tag>
+            <el-tag v-else-if="row.type === 'BUTTON'" type="warning">按钮</el-tag>
+            <el-tag v-else type="info">{{ row.type }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="path" label="路由路径" min-width="150" />
@@ -52,9 +53,9 @@
         </el-form-item>
         <el-form-item label="权限类型" prop="type">
           <el-radio-group v-model="form.type">
-            <el-radio :value="1">菜单</el-radio>
-            <el-radio :value="2">页面</el-radio>
-            <el-radio :value="3">按钮</el-radio>
+            <el-radio value="MENU">菜单</el-radio>
+            <el-radio value="PAGE">页面</el-radio>
+            <el-radio value="BUTTON">按钮</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="路由路径">
@@ -87,6 +88,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { getPermissionTree, createPermission, updatePermission, deletePermission } from '@/api/permission'
 import type { PermissionVO } from '@/types/auth'
+import { PermissionTypeCode } from '@/constants/domainCodes'
 
 const loading = ref(false)
 const permissionTree = ref<PermissionVO[]>([])
@@ -100,7 +102,7 @@ const form = reactive({
   parentId: '' as string | null,
   name: '',
   code: '',
-  type: 1,
+  type: PermissionTypeCode.MENU as string,
   path: '',
   icon: '',
   sortOrder: 0,
@@ -129,7 +131,7 @@ function handleAdd(parentId: string | null) {
   form.parentId = parentId
   form.name = ''
   form.code = ''
-  form.type = 1
+  form.type = PermissionTypeCode.MENU
   form.path = ''
   form.icon = ''
   form.sortOrder = 0

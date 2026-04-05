@@ -1,6 +1,6 @@
 <template>
   <KujiActivityList
-    :activity-type="8"
+    activity-type="UNLIMITED"
     list-base-path="/gameplay/unlimited"
     :labels="KUJI_UNLIMITED_LABELS"
   />
