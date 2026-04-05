@@ -13,6 +13,15 @@ export function listActivities(params: ActivityQueryRequest) {
   return request.get<any, Result<PageResult<ActivityVO>>>('/order-admin-api/activities', { params })
 }
 
+/** CMS / pickers: keyword search with small page size */
+export function fetchActivityList(params: { keyword?: string; page?: number; size?: number }) {
+  return listActivities({
+    page: params.page ?? 1,
+    size: params.size ?? 15,
+    keyword: params.keyword,
+  })
+}
+
 export function getActivity(id: string) {
   return request.get<any, Result<ActivityVO>>(`/order-admin-api/activities/${id}`)
 }

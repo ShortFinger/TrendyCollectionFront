@@ -14,7 +14,7 @@
           <el-descriptions-item label="卡池名称">{{ activity.title }}</el-descriptions-item>
           <el-descriptions-item label="活动 ID">{{ activity.id }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="activity.status === 1 ? 'success' : 'info'">{{ activity.status === 1 ? '上架' : '下架' }}</el-tag>
+            <el-tag :type="activity.status === 'ON_SHELF' ? 'success' : 'info'">{{ activity.status === 'ON_SHELF' ? '上架' : '下架' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="单抽价(¥)">¥{{ activity.moneyPrice }}</el-descriptions-item>
           <el-descriptions-item label="积分价">{{ activity.scorePrice }}</el-descriptions-item>
@@ -127,7 +127,7 @@
         <el-table-column prop="stockQuantity" label="库存" width="80" />
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '上架' : '下架' }}</el-tag>
+            <el-tag :type="row.status === 'ON_SHELF' ? 'success' : 'info'" size="small">{{ row.status === 'ON_SHELF' ? '上架' : '下架' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
@@ -267,7 +267,7 @@
         </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '上架' : '下架' }}</el-tag>
+            <el-tag :type="row.status === 'ON_SHELF' ? 'success' : 'info'" size="small">{{ row.status === 'ON_SHELF' ? '上架' : '下架' }}</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -300,7 +300,7 @@
           <el-input v-model="simForm.seedText" placeholder="可选，留空由服务端生成" clearable />
         </el-form-item>
         <el-form-item
-          v-if="activity && (activity.activityType === 7 || activity.activityType === 8)"
+          v-if="activity && isKujiActivityFamily(activity.activityType)"
           label="箱子"
           :required="simBoxList.length > 1"
         >
@@ -384,6 +384,7 @@ import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
 import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
+import { isKujiActivityFamily } from '@/constants/domainCodes'
 
 const route = useRoute()
 const router = useRouter()
@@ -403,7 +404,7 @@ async function openSimDialog() {
   simResult.value = null
   simForm.boxId = ''
   simBoxList.value = []
-  if (activity.value && (activity.value.activityType === 7 || activity.value.activityType === 8)) {
+  if (activity.value && isKujiActivityFamily(activity.value.activityType)) {
     simBoxLoading.value = true
     try {
       const res = await listBoxes(activityId, { page: 1, size: 100 })
@@ -432,7 +433,7 @@ async function runSimulation() {
     ElMessage.warning('随机种子须为数字')
     return
   }
-  if (activity.value && (activity.value.activityType === 7 || activity.value.activityType === 8)) {
+  if (activity.value && isKujiActivityFamily(activity.value.activityType)) {
     if (simBoxList.value.length > 1 && !simForm.boxId) {
       ElMessage.warning('请选择要模拟的箱子')
       return
@@ -447,7 +448,7 @@ async function runSimulation() {
       drawsPerPerson: simForm.drawsPerPerson,
       seed: seed ?? null,
     }
-    if (activity.value && (activity.value.activityType === 7 || activity.value.activityType === 8) && simForm.boxId) {
+    if (activity.value && isKujiActivityFamily(activity.value.activityType) && simForm.boxId) {
       payload.boxId = simForm.boxId
     }
     const res = await postLotterySimulation(activityId, payload)

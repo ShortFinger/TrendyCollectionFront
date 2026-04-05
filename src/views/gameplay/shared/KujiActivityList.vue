@@ -13,8 +13,13 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="query.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="上架" :value="1" />
-            <el-option label="下架" :value="0" />
+            <el-option label="上架" value="ON_SHELF" />
+            <el-option label="下架" value="OFF_SHELF" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="商品分类">
+          <el-select v-model="query.categoryId" placeholder="全部" clearable filterable style="width: 200px">
+            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.title" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -24,6 +29,9 @@
       </el-form>
       <el-table :data="list" stripe style="width: 100%" v-loading="loading">
         <el-table-column prop="title" :label="labels.tableTitleColumn" min-width="160" />
+        <el-table-column label="分类" width="140">
+          <template #default="{ row }">{{ row.categoryTitle || '-' }}</template>
+        </el-table-column>
         <el-table-column label="方图" width="72">
           <template #default="{ row }">
             <el-image v-if="row.squareThumb" :src="row.squareThumb" style="width: 40px; height: 40px" fit="cover" />
@@ -55,7 +63,7 @@
         <el-table-column prop="joinUserTotal" label="参与用户" width="90" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-switch :model-value="row.status === 1" @change="(val: boolean) => handleToggleStatus(row, val)" />
+            <el-switch :model-value="row.status === 'ON_SHELF'" @change="(val: boolean) => handleToggleStatus(row, val)" />
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
@@ -113,7 +121,7 @@
         <el-form-item label="最大箱子数" prop="boxCount">
           <el-input-number v-model="form.boxCount" :min="1" style="width: 100%" />
         </el-form-item>
-        <el-form-item v-if="props.activityType === 7" label="最终赏 SKU ID">
+        <el-form-item v-if="props.activityType === 'ICHIBAN'" label="最终赏 SKU ID">
           <el-input v-model="form.finalPrizeSkuId" placeholder="留空表示不开启；须为活动内已创建 SKU" clearable />
         </el-form-item>
         <el-form-item label="人民币价格" prop="moneyPrice">
@@ -145,8 +153,10 @@
           <el-input-number v-model="form.amountLimit" :min="0" style="width: 100%" />
           <span class="hint">0 表示无限制</span>
         </el-form-item>
-        <el-form-item label="专区 ID">
-          <el-input v-model="form.specialAreaId" />
+        <el-form-item label="商品分类">
+          <el-select v-model="form.categoryId" placeholder="不选则无分类" clearable filterable style="width: 100%">
+            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.title" :value="c.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="随机赠送">
           <el-switch v-model="form.isRandomRewardEnabled" :active-value="1" :inactive-value="0" />
@@ -166,10 +176,12 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { listActivities, createActivity, updateActivity, updateActivityStatus, deleteActivity } from '@/api/activity'
+import { listCategories } from '@/api/category'
 import type { ActivityVO, ActivitySaveRequest } from '@/types/activity'
+import type { CategoryVO } from '@/types/category'
 
 const props = defineProps<{
-  activityType: 7 | 8
+  activityType: 'ICHIBAN' | 'UNLIMITED'
   listBasePath: string
   labels: import('./kujiListLabels').KujiListUiLabels
 }>()
@@ -179,7 +191,14 @@ const router = useRouter()
 const loading = ref(false)
 const list = ref<ActivityVO[]>([])
 const total = ref(0)
-const query = reactive({ page: 1, size: 10, keyword: '', status: undefined as number | undefined })
+const categoryOptions = ref<CategoryVO[]>([])
+const query = reactive({
+  page: 1,
+  size: 10,
+  keyword: '',
+  status: undefined as string | undefined,
+  categoryId: undefined as string | undefined,
+})
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -206,7 +225,7 @@ const form = reactive({
   tags: '',
   rank: 0 as 0 | 1,
   amountLimit: 0,
-  specialAreaId: '',
+  categoryId: undefined as string | undefined,
   isRandomRewardEnabled: 0 as 0 | 1,
 })
 
@@ -224,7 +243,7 @@ function buildSavePayload(): ActivitySaveRequest {
     activityType: props.activityType,
     boxCount: form.boxCount,
     finalPrizeSkuId:
-      props.activityType === 7 && form.finalPrizeSkuId.trim() !== '' ? form.finalPrizeSkuId.trim() : undefined,
+      props.activityType === 'ICHIBAN' && form.finalPrizeSkuId.trim() !== '' ? form.finalPrizeSkuId.trim() : undefined,
     squareThumb: form.squareThumb || undefined,
     longThumb: form.longThumb || undefined,
     lowerLeftCornerMark: form.lowerLeftCornerMark || undefined,
@@ -239,7 +258,10 @@ function buildSavePayload(): ActivitySaveRequest {
     tags: form.tags || undefined,
     rank: form.rank,
     amountLimit: form.amountLimit,
-    specialAreaId: form.specialAreaId || undefined,
+    categoryId:
+      form.categoryId !== undefined && form.categoryId !== null && String(form.categoryId).trim() !== ''
+        ? String(form.categoryId).trim()
+        : undefined,
     isRandomRewardEnabled: form.isRandomRewardEnabled,
   }
 }
@@ -264,7 +286,7 @@ function resetForm() {
     tags: '',
     rank: 0,
     amountLimit: 0,
-    specialAreaId: '',
+    categoryId: undefined,
     isRandomRewardEnabled: 0,
   })
 }
@@ -289,7 +311,8 @@ function rowToForm(row: ActivityVO) {
     tags: row.tags || '',
     rank: (row.rank === 1 ? 1 : 0) as 0 | 1,
     amountLimit: row.amountLimit ?? 0,
-    specialAreaId: row.specialAreaId || '',
+    categoryId:
+      row.categoryId != null && String(row.categoryId).trim() !== '' ? String(row.categoryId).trim() : undefined,
     isRandomRewardEnabled: (row.isRandomRewardEnabled === 1 ? 1 : 0) as 0 | 1,
   })
 }
@@ -300,6 +323,9 @@ async function fetchData() {
     const params: Record<string, unknown> = { page: query.page, size: query.size, activityType: props.activityType }
     if (query.keyword) params.keyword = query.keyword
     if (query.status !== undefined) params.status = query.status
+    if (query.categoryId !== undefined && query.categoryId !== null && String(query.categoryId).trim() !== '') {
+      params.categoryId = String(query.categoryId).trim()
+    }
     const { data } = await listActivities(params as any)
     list.value = data.records
     total.value = data.total
@@ -316,8 +342,14 @@ function handleSearch() {
 function handleResetQuery() {
   query.keyword = ''
   query.status = undefined
+  query.categoryId = undefined
   query.page = 1
   fetchData()
+}
+
+async function loadCategories() {
+  const { data } = await listCategories({ page: 1, size: 200 })
+  categoryOptions.value = data.records
 }
 
 function goToBoxes(row: ActivityVO) {
@@ -358,7 +390,7 @@ async function handleSubmit() {
 }
 
 async function handleToggleStatus(row: ActivityVO, val: boolean) {
-  await updateActivityStatus(row.id, { status: val ? 1 : 0 })
+  await updateActivityStatus(row.id, { status: val ? 'ON_SHELF' : 'OFF_SHELF' })
   ElMessage.success(val ? '已上架' : '已下架')
   fetchData()
 }
@@ -369,7 +401,10 @@ async function handleDelete(id: string) {
   fetchData()
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  void loadCategories()
+  void fetchData()
+})
 </script>
 
 <style scoped>
