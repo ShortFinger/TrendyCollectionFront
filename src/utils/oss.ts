@@ -16,6 +16,24 @@ function validateFile(file: File): void {
   }
 }
 
+export function validateImageFile(file: File): void {
+  if (!IMAGE_TYPES.includes(file.type)) {
+    throw new Error(`不支持的图片类型: ${file.type}。支持: JPG, PNG, WebP, GIF`)
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`文件大小超过限制（最大 50MB），当前: ${(file.size / 1024 / 1024).toFixed(1)}MB`)
+  }
+}
+
+export function validateVideoFile(file: File): void {
+  if (!VIDEO_TYPES.includes(file.type)) {
+    throw new Error(`不支持的视频类型: ${file.type}。支持: MP4, WebM`)
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`文件大小超过限制（最大 50MB），当前: ${(file.size / 1024 / 1024).toFixed(1)}MB`)
+  }
+}
+
 function generateObjectKey(dir: string, fileName: string): string {
   const ext = fileName.includes('.') ? fileName.substring(fileName.lastIndexOf('.')) : ''
   const uuid = crypto.randomUUID()

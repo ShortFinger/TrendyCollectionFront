@@ -17,3 +17,21 @@ export function getCmsStsToken(pageKey: string) {
     { params: { pageKey } }
   )
 }
+
+export interface OssMoveRequest {
+  tempId: string
+  targetDir: string
+  fields: string[]
+}
+
+export interface OssMoveResponse {
+  movedKeys: Record<string, string>
+  errors: Record<string, string>
+}
+
+export function moveFiles(data: OssMoveRequest) {
+  return request.post<any, Result<OssMoveResponse>>(
+    '/admin-api/oss/move',
+    data
+  )
+}
