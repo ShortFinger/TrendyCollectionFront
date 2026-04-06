@@ -55,12 +55,12 @@
         </el-table-column>
         <el-table-column label="图标" min-width="120">
           <template #default="{ row }">
-            <el-input v-model="row.icon" placeholder="可选 URL" />
+            <MediaUpload v-model="row.icon" :dir="levelUploadDir('icon')" />
           </template>
         </el-table-column>
         <el-table-column label="开盒动画" min-width="120">
           <template #default="{ row }">
-            <el-input v-model="row.openBoxAnimation" placeholder="可选" />
+            <MediaUpload v-model="row.openBoxAnimation" accept="video" :dir="levelUploadDir('animation')" />
           </template>
         </el-table-column>
         <el-table-column label="排序" width="110">
@@ -309,31 +309,31 @@
           <span class="box-prize-fixed" style="display: block; margin-top: 6px">对应生成相同条数的 activity_box_item；编辑时可减少库存以删除未抽中签位。</span>
         </el-form-item>
         <el-form-item label="主图 URL">
-          <el-input v-model="prizeForm.imageUrl" placeholder="图片链接" />
+          <MediaUpload v-model="prizeForm.imageUrl" :dir="skuUploadDir('icon')" />
         </el-form-item>
         <el-form-item label="规格属性">
           <el-input v-model="prizeForm.specAttributes" placeholder='JSON，如 {"Color":"红","Size":"M"}' />
         </el-form-item>
         <el-form-item label="开盒动画">
-          <el-input v-model="prizeForm.openBoxAnimation" />
+          <MediaUpload v-model="prizeForm.openBoxAnimation" accept="video" :dir="skuUploadDir('open-box-animation')" />
         </el-form-item>
         <el-form-item label="前面图片">
-          <el-input v-model="prizeForm.frontImage" placeholder="URL" />
+          <MediaUpload v-model="prizeForm.frontImage" :dir="skuUploadDir('front')" />
         </el-form-item>
         <el-form-item label="后面图片">
-          <el-input v-model="prizeForm.backImage" placeholder="URL" />
+          <MediaUpload v-model="prizeForm.backImage" :dir="skuUploadDir('back')" />
         </el-form-item>
         <el-form-item label="左边图片">
-          <el-input v-model="prizeForm.leftImage" placeholder="URL" />
+          <MediaUpload v-model="prizeForm.leftImage" :dir="skuUploadDir('left')" />
         </el-form-item>
         <el-form-item label="右边图片">
-          <el-input v-model="prizeForm.rightImage" placeholder="URL" />
+          <MediaUpload v-model="prizeForm.rightImage" :dir="skuUploadDir('right')" />
         </el-form-item>
         <el-form-item label="顶部图片">
-          <el-input v-model="prizeForm.topImage" placeholder="URL" />
+          <MediaUpload v-model="prizeForm.topImage" :dir="skuUploadDir('top')" />
         </el-form-item>
         <el-form-item label="底部图片">
-          <el-input v-model="prizeForm.bottomImage" placeholder="URL" />
+          <MediaUpload v-model="prizeForm.bottomImage" :dir="skuUploadDir('bottom')" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -545,6 +545,7 @@ import { listBoxes, createBox, updateBox, deleteBox, linkSkuToBox, copySkuToBox,
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
 import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
+import MediaUpload from '@/components/MediaUpload.vue'
 import type { ActivityVO, LotterySimulationRequest, LotterySimulationResponse } from '@/types/activity'
 import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
@@ -580,6 +581,19 @@ const BOX_SKU_SPECIAL_REWARD_PROBABILITY = 100
 const route = useRoute()
 const router = useRouter()
 const activityId = route.params.activityId as string
+
+const skuTempId = ref('')
+
+function skuUploadDir(field: string) {
+  if (prizeSkuEditId.value) {
+    return `ichiban/${activityId}/boxes/${prizeSkuEditId.value}/${field}`
+  }
+  return `ichiban/${activityId}/boxes/temp-${skuTempId.value}/${field}`
+}
+
+function levelUploadDir(field: string) {
+  return `ichiban/${activityId}/levels/${field}`
+}
 
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
@@ -949,6 +963,7 @@ async function openPrizeDialogForDraft() {
   prizeFormMode.value = 'draft'
   prizeDialogTitle.value = '添加箱内商品'
   prizeSkuEditId.value = ''
+  skuTempId.value = crypto.randomUUID()
   resetPrizeForm()
   await fetchLevelConfig()
   prizeDialogVisible.value = true
@@ -958,6 +973,7 @@ async function openPrizeDialogForNewSku() {
   prizeFormMode.value = 'sku-new'
   prizeDialogTitle.value = '添加箱内商品'
   prizeSkuEditId.value = ''
+  skuTempId.value = crypto.randomUUID()
   resetPrizeForm()
   await fetchLevelConfig()
   prizeDialogVisible.value = true
@@ -967,6 +983,7 @@ async function openPrizeDialogEditSku(row: SkuVO) {
   prizeFormMode.value = 'sku-edit'
   prizeDialogTitle.value = '编辑箱内商品'
   prizeSkuEditId.value = row.id
+  skuTempId.value = ''
   resetPrizeForm()
   await fetchLevelConfig()
   await rowToPrizeForm(row)
