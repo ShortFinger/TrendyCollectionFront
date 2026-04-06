@@ -79,44 +79,44 @@
         </el-form-item>
         <el-divider content-position="left">图片信息</el-divider>
         <el-form-item label="主图" prop="mainImageUrl">
-          <el-input v-model="form.mainImageUrl" placeholder="主图 URL" />
+          <MediaUpload v-model="form.mainImageUrl" :dir="uploadDir('main')" />
         </el-form-item>
         <el-form-item label="展示图" prop="showImage">
-          <el-input v-model="form.showImage" placeholder="展示图 URL" />
+          <MediaUpload v-model="form.showImage" :dir="uploadDir('show')" />
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="顶视图" prop="topImage">
-              <el-input v-model="form.topImage" placeholder="顶视图 URL" />
+              <MediaUpload v-model="form.topImage" :dir="uploadDir('top')" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="底视图" prop="bottomImage">
-              <el-input v-model="form.bottomImage" placeholder="底视图 URL" />
+              <MediaUpload v-model="form.bottomImage" :dir="uploadDir('bottom')" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="前视图" prop="frontImage">
-              <el-input v-model="form.frontImage" placeholder="前视图 URL" />
+              <MediaUpload v-model="form.frontImage" :dir="uploadDir('front')" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="后视图" prop="backImage">
-              <el-input v-model="form.backImage" placeholder="后视图 URL" />
+              <MediaUpload v-model="form.backImage" :dir="uploadDir('back')" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="左视图" prop="leftImage">
-              <el-input v-model="form.leftImage" placeholder="左视图 URL" />
+              <MediaUpload v-model="form.leftImage" :dir="uploadDir('left')" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="右视图" prop="rightImage">
-              <el-input v-model="form.rightImage" placeholder="右视图 URL" />
+              <MediaUpload v-model="form.rightImage" :dir="uploadDir('right')" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -144,6 +144,8 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '@/api/product'
 import type { ProductVO, ProductSaveRequest } from '@/types/product'
 import { ProductListingStatus, productListingStatusText, productListingTagType } from '@/constants/domainCodes'
+import MediaUpload from '@/components/MediaUpload.vue'
+import { moveFiles } from '@/api/oss'
 
 const loading = ref(false)
 const list = ref<ProductVO[]>([])
@@ -158,6 +160,7 @@ const isEdit = ref(false)
 const editId = ref('')
 const submitLoading = ref(false)
 const formRef = ref<FormInstance>()
+const tempId = ref('')
 
 const defaultForm = (): ProductSaveRequest => ({
   productCode: '',
@@ -175,6 +178,13 @@ const defaultForm = (): ProductSaveRequest => ({
 })
 
 const form = reactive<ProductSaveRequest>(defaultForm())
+
+function uploadDir(field: string) {
+  if (isEdit.value) {
+    return `products/${editId.value}/${field}`
+  }
+  return `temp/${tempId.value}/${field}`
+}
 
 const rules: FormRules = {
   productCode: [{ required: true, message: '请输入商品编码', trigger: 'blur' }],
@@ -215,11 +225,13 @@ function handleAdd() {
   isEdit.value = false
   editId.value = ''
   Object.assign(form, defaultForm())
+  tempId.value = crypto.randomUUID()
   dialogVisible.value = true
 }
 
 function handleEdit(row: ProductVO) {
   isEdit.value = true
+  tempId.value = ''
   editId.value = row.id
   Object.assign(form, {
     productCode: row.productCode,
@@ -247,7 +259,37 @@ async function handleSubmit() {
       await updateProduct(editId.value, form)
       ElMessage.success('编辑成功')
     } else {
-      await createProduct(form)
+      const { data } = await createProduct(form)
+      const productId = typeof data === 'object' && data !== null && 'id' in data ? (data as any).id : data
+      // 新建成功后移动临时文件到正式目录
+      const fieldMapping: Record<string, string> = {
+        main: 'mainImageUrl',
+        show: 'showImage',
+        top: 'topImage',
+        bottom: 'bottomImage',
+        front: 'frontImage',
+        back: 'backImage',
+        left: 'leftImage',
+        right: 'rightImage',
+      }
+      const usedFields = Object.entries(fieldMapping)
+        .filter(([, formKey]) => !!(form as any)[formKey])
+        .map(([field]) => field)
+      if (usedFields.length > 0) {
+        const moveRes = await moveFiles({
+          tempId: tempId.value,
+          targetDir: `products/${productId}`,
+          fields: usedFields,
+        })
+        // 用新路径更新实体
+        const updates: Record<string, string> = {}
+        for (const [field, newKey] of Object.entries(moveRes.data.movedKeys)) {
+          updates[fieldMapping[field]] = newKey
+        }
+        if (Object.keys(updates).length > 0) {
+          await updateProduct(productId, { ...form, ...updates })
+        }
+      }
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false
