@@ -55,12 +55,12 @@
         </el-table-column>
         <el-table-column label="图标" min-width="120">
           <template #default="{ row }">
-            <el-input v-model="row.icon" placeholder="可选 URL" />
+            <MediaUpload v-model="row.icon" :dir="levelUploadDir('icon')" />
           </template>
         </el-table-column>
         <el-table-column label="开盒动画" min-width="120">
           <template #default="{ row }">
-            <el-input v-model="row.openBoxAnimation" placeholder="可选" />
+            <MediaUpload v-model="row.openBoxAnimation" accept="video" :dir="levelUploadDir('animation')" />
           </template>
         </el-table-column>
         <el-table-column label="排序" width="110">
@@ -204,31 +204,31 @@
           <el-input-number v-model="form.stockQuantity" :min="0" style="width: 100%" />
         </el-form-item>
         <el-form-item label="主图 URL">
-          <el-input v-model="form.imageUrl" placeholder="图片链接" />
+          <MediaUpload v-model="form.imageUrl" :dir="skuUploadDir('icon')" />
         </el-form-item>
         <el-form-item label="规格属性">
           <el-input v-model="form.specAttributes" placeholder='JSON，如 {"Color":"红","Size":"M"}' />
         </el-form-item>
         <el-form-item label="开盒动画">
-          <el-input v-model="form.openBoxAnimation" />
+          <MediaUpload v-model="form.openBoxAnimation" accept="video" :dir="skuUploadDir('open-box-animation')" />
         </el-form-item>
         <el-form-item label="前面图片">
-          <el-input v-model="form.frontImage" placeholder="URL" />
+          <MediaUpload v-model="form.frontImage" :dir="skuUploadDir('front')" />
         </el-form-item>
         <el-form-item label="后面图片">
-          <el-input v-model="form.backImage" placeholder="URL" />
+          <MediaUpload v-model="form.backImage" :dir="skuUploadDir('back')" />
         </el-form-item>
         <el-form-item label="左边图片">
-          <el-input v-model="form.leftImage" placeholder="URL" />
+          <MediaUpload v-model="form.leftImage" :dir="skuUploadDir('left')" />
         </el-form-item>
         <el-form-item label="右边图片">
-          <el-input v-model="form.rightImage" placeholder="URL" />
+          <MediaUpload v-model="form.rightImage" :dir="skuUploadDir('right')" />
         </el-form-item>
         <el-form-item label="顶部图片">
-          <el-input v-model="form.topImage" placeholder="URL" />
+          <MediaUpload v-model="form.topImage" :dir="skuUploadDir('top')" />
         </el-form-item>
         <el-form-item label="底部图片">
-          <el-input v-model="form.bottomImage" placeholder="URL" />
+          <MediaUpload v-model="form.bottomImage" :dir="skuUploadDir('bottom')" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -374,6 +374,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
+import MediaUpload from '@/components/MediaUpload.vue'
 import { getActivity, updateActivity, postLotterySimulation } from '@/api/activity'
 import { listBoxes } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
@@ -486,6 +487,19 @@ const isEdit = ref(false)
 const editId = ref('')
 const submitLoading = ref(false)
 const formRef = ref<FormInstance>()
+
+const skuTempId = ref('')
+
+function skuUploadDir(field: string) {
+  if (editId.value) {
+    return `gacha/${activityId}/prizes/${editId.value}/${field}`
+  }
+  return `gacha/${activityId}/prizes/temp-${skuTempId.value}/${field}`
+}
+
+function levelUploadDir(field: string) {
+  return `gacha/${activityId}/levels/${field}`
+}
 
 const productPickerVisible = ref(false)
 const productListLoading = ref(false)
@@ -813,6 +827,7 @@ function handleResetQuery() {
 async function handleAdd() {
   isEdit.value = false
   editId.value = ''
+  skuTempId.value = crypto.randomUUID()
   resetForm()
   await fetchLevelConfig()
   dialogVisible.value = true
@@ -821,6 +836,7 @@ async function handleAdd() {
 async function handleEdit(row: SkuVO) {
   isEdit.value = true
   editId.value = row.id
+  skuTempId.value = ''
   await fetchLevelConfig()
   await rowToForm(row)
   dialogVisible.value = true
