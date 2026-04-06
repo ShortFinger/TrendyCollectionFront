@@ -101,22 +101,22 @@
           <el-input v-model="form.title" :placeholder="labels.formTitlePlaceholder" />
         </el-form-item>
         <el-form-item label="正方形封面">
-          <el-input v-model="form.squareThumb" placeholder="square_thumb URL" />
+          <MediaUpload v-model="form.squareThumb" :dir="uploadDir('square-thumb')" />
         </el-form-item>
         <el-form-item label="长方形封面">
-          <el-input v-model="form.longThumb" placeholder="long_thumb URL" />
+          <MediaUpload v-model="form.longThumb" :dir="uploadDir('long-thumb')" />
         </el-form-item>
         <el-form-item label="轮播图">
-          <el-input v-model="form.images" placeholder="多张英文逗号分隔" />
+          <MediaUpload v-model="form.images" :dir="uploadDir('images')" />
         </el-form-item>
         <el-form-item label="角标（左下）">
-          <el-input v-model="form.lowerLeftCornerMark" />
+          <MediaUpload v-model="form.lowerLeftCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="角标（左上）">
-          <el-input v-model="form.upperLeftCornerMark" />
+          <MediaUpload v-model="form.upperLeftCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="角标（右下）">
-          <el-input v-model="form.lowerRightCornerMark" />
+          <MediaUpload v-model="form.lowerRightCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="最大箱子数" prop="boxCount">
           <el-input-number v-model="form.boxCount" :min="1" style="width: 100%" />
@@ -141,7 +141,7 @@
           <el-input-number v-model="form.multiBuyDiscount" :min="0" style="width: 100%" />
         </el-form-item>
         <el-form-item label="开箱动画">
-          <el-input v-model="form.openBoxAnimation" />
+          <MediaUpload v-model="form.openBoxAnimation" accept="video" :dir="uploadDir('open-box-animation')" />
         </el-form-item>
         <el-form-item label="标签">
           <el-input v-model="form.tags" />
@@ -179,6 +179,8 @@ import { listActivities, createActivity, updateActivity, updateActivityStatus, d
 import { listCategories } from '@/api/category'
 import type { ActivityVO, ActivitySaveRequest } from '@/types/activity'
 import type { CategoryVO } from '@/types/category'
+import MediaUpload from '@/components/MediaUpload.vue'
+import { moveFiles } from '@/api/oss'
 
 const props = defineProps<{
   activityType: 'ICHIBAN' | 'UNLIMITED'
@@ -205,6 +207,7 @@ const isEdit = ref(false)
 const editId = ref('')
 const submitLoading = ref(false)
 const formRef = ref<FormInstance>()
+const tempId = ref('')
 
 const form = reactive({
   title: '',
@@ -236,6 +239,14 @@ const formRules = computed<FormRules>(() => ({
   scorePrice: [{ required: true, message: '请输入积分价格', trigger: 'blur' }],
   perUserLimit: [{ required: true, message: '请输入限次', trigger: 'blur' }],
 }))
+
+function uploadDir(field: string) {
+  const dirPrefix = props.activityType.toLowerCase()
+  if (isEdit.value) {
+    return `${dirPrefix}/${editId.value}/${field}`
+  }
+  return `temp/${tempId.value}/${field}`
+}
 
 function buildSavePayload(): ActivitySaveRequest {
   return {
@@ -360,12 +371,14 @@ function handleAdd() {
   isEdit.value = false
   editId.value = ''
   resetForm()
+  tempId.value = crypto.randomUUID()
   dialogVisible.value = true
 }
 
 function handleEdit(row: ActivityVO) {
   isEdit.value = true
   editId.value = row.id
+  tempId.value = ''
   rowToForm(row)
   dialogVisible.value = true
 }
@@ -379,7 +392,31 @@ async function handleSubmit() {
     if (isEdit.value) {
       await updateActivity(editId.value, payload)
     } else {
-      await createActivity(payload)
+      const { data } = await createActivity(payload)
+      const activityId = typeof data === 'object' && data !== null && 'id' in data ? (data as any).id : data
+      const dirPrefix = props.activityType.toLowerCase()
+      const fieldMapping: Record<string, string> = {
+        'square-thumb': 'squareThumb',
+        'long-thumb': 'longThumb',
+        'images': 'images',
+        'corner-marks': 'lowerLeftCornerMark',
+        'open-box-animation': 'openBoxAnimation',
+      }
+      const usedFields = Object.entries(fieldMapping)
+        .filter(([, formKey]) => {
+          if (formKey === 'lowerLeftCornerMark') {
+            return form.lowerLeftCornerMark || form.upperLeftCornerMark || form.lowerRightCornerMark
+          }
+          return !!(form as any)[formKey]
+        })
+        .map(([field]) => field)
+      if (usedFields.length > 0) {
+        await moveFiles({
+          tempId: tempId.value,
+          targetDir: `${dirPrefix}/${activityId}`,
+          fields: usedFields,
+        })
+      }
     }
     ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
     dialogVisible.value = false
