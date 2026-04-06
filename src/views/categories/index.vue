@@ -65,27 +65,27 @@
         <el-form-item label="标题" prop="title">
           <el-input v-model="form.title" placeholder="标题" />
         </el-form-item>
-        <el-divider content-position="left">素材 URL</el-divider>
+        <el-divider content-position="left">素材</el-divider>
         <el-form-item label="正方形封面" prop="squareThumb">
-          <el-input v-model="form.squareThumb" placeholder="URL" />
+          <MediaUpload v-model="form.squareThumb" :dir="uploadDir('square-thumb')" />
         </el-form-item>
         <el-form-item label="长方形封面" prop="longThumb">
-          <el-input v-model="form.longThumb" placeholder="URL" />
+          <MediaUpload v-model="form.longThumb" :dir="uploadDir('long-thumb')" />
         </el-form-item>
         <el-form-item label="左上标" prop="upperLeftCornerMark">
-          <el-input v-model="form.upperLeftCornerMark" placeholder="URL" />
+          <MediaUpload v-model="form.upperLeftCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="右上标" prop="upperRightCornerMark">
-          <el-input v-model="form.upperRightCornerMark" placeholder="URL" />
+          <MediaUpload v-model="form.upperRightCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="左下标" prop="lowerLeftCornerMark">
-          <el-input v-model="form.lowerLeftCornerMark" placeholder="URL" />
+          <MediaUpload v-model="form.lowerLeftCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="右下标" prop="lowerRightCornerMark">
-          <el-input v-model="form.lowerRightCornerMark" placeholder="URL" />
+          <MediaUpload v-model="form.lowerRightCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="轮播图" prop="images">
-          <el-input v-model="form.images" placeholder="URL 或留空" />
+          <MediaUpload v-model="form.images" :dir="uploadDir('images')" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" style="width: 200px">
@@ -109,6 +109,8 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { listCategories, createCategory, updateCategory, deleteCategory } from '@/api/category'
 import type { CategoryVO, CategorySaveRequest } from '@/types/category'
 import { CategoryEnableStatus, categoryStatusText } from '@/constants/domainCodes'
+import MediaUpload from '@/components/MediaUpload.vue'
+import { moveFiles } from '@/api/oss'
 
 const loading = ref(false)
 const list = ref<CategoryVO[]>([])
@@ -122,6 +124,7 @@ const isEdit = ref(false)
 const editId = ref('')
 const submitLoading = ref(false)
 const formRef = ref<FormInstance>()
+const tempId = ref('')
 
 const defaultForm = (): CategorySaveRequest => ({
   title: '',
@@ -136,6 +139,13 @@ const defaultForm = (): CategorySaveRequest => ({
 })
 
 const form = reactive<CategorySaveRequest>(defaultForm())
+
+function uploadDir(field: string) {
+  if (isEdit.value) {
+    return `categories/${editId.value}/${field}`
+  }
+  return `temp/${tempId.value}/${field}`
+}
 
 const rules: FormRules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -173,12 +183,14 @@ function handleAdd() {
   isEdit.value = false
   editId.value = ''
   Object.assign(form, defaultForm())
+  tempId.value = crypto.randomUUID()
   dialogVisible.value = true
 }
 
 function handleEdit(row: CategoryVO) {
   isEdit.value = true
   editId.value = row.id
+  tempId.value = ''
   Object.assign(form, {
     title: row.title,
     squareThumb: row.squareThumb || '',
@@ -206,7 +218,38 @@ async function handleSubmit() {
       await updateCategory(editId.value, payload)
       ElMessage.success('编辑成功')
     } else {
-      await createCategory(payload)
+      const { data } = await createCategory(payload)
+      const categoryId = typeof data === 'object' && data !== null && 'id' in data ? (data as any).id : data
+      const fieldMapping: Record<string, string> = {
+        'square-thumb': 'squareThumb',
+        'long-thumb': 'longThumb',
+        'corner-marks': 'upperLeftCornerMark',
+        'images': 'images',
+      }
+      const usedFields = Object.entries(fieldMapping)
+        .filter(([, formKey]) => {
+          if (formKey === 'upperLeftCornerMark') {
+            return form.upperLeftCornerMark || form.upperRightCornerMark || form.lowerLeftCornerMark || form.lowerRightCornerMark
+          }
+          return !!(form as any)[formKey]
+        })
+        .map(([field]) => field)
+      if (usedFields.length > 0) {
+        const moveRes = await moveFiles({
+          tempId: tempId.value,
+          targetDir: `categories/${categoryId}`,
+          fields: usedFields,
+        })
+        const updates: Partial<CategorySaveRequest> = {}
+        for (const [field, newKey] of Object.entries(moveRes.data.movedKeys)) {
+          if (field === 'square-thumb') updates.squareThumb = newKey
+          else if (field === 'long-thumb') updates.longThumb = newKey
+          else if (field === 'images') updates.images = newKey
+        }
+        if (Object.keys(updates).length > 0) {
+          await updateCategory(categoryId, { ...payload, ...updates })
+        }
+      }
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false
