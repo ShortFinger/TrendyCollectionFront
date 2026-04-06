@@ -164,12 +164,7 @@
         </template>
         <template v-else>
           <el-form-item label="图片">
-            <div class="img-row">
-              <el-input v-model="visualForm.imageUrl" placeholder="图片 URL" />
-              <el-upload :show-file-list="false" :http-request="handleImageUpload">
-                <el-button type="primary" plain>上传</el-button>
-              </el-upload>
-            </div>
+            <MediaUpload v-model="visualForm.imageUrl" :dir="`pages/${pageKey}`" />
           </el-form-item>
           <el-form-item label="链接">
             <el-input v-model="visualForm.linkUrl" placeholder="可选，小程序 path 或 H5" />
@@ -210,7 +205,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   fetchEditorState,
   forkDraft,
@@ -221,7 +216,7 @@ import {
   updateItem,
 } from '@/api/appCms'
 import { fetchActivityList, getActivity } from '@/api/activity'
-import { uploadCmsFile } from '@/utils/oss'
+import MediaUpload from '@/components/MediaUpload.vue'
 import type { ActivityVO } from '@/types/activity'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
 import {
@@ -526,20 +521,6 @@ function resetItemForm() {
   itemTimeRange.value = null
 }
 
-async function handleImageUpload(options: UploadRequestOptions) {
-  const fileOptions = options
-  const raw = fileOptions.file as File
-  try {
-    const result = await uploadCmsFile(raw, pageKey.value)
-    visualForm.value.imageUrl = result.objectKey
-    ElMessage.success('上传成功')
-    fileOptions.onSuccess(result)
-  } catch (e: unknown) {
-    ElMessage.error(e instanceof Error ? e.message : '上传失败')
-    fileOptions.onError(e as any)
-  }
-}
-
 async function submitItem() {
   const slot = activeSlot.value
   if (!slot) {
@@ -672,17 +653,6 @@ async function submitItem() {
 
 .drawer-actions {
   margin-bottom: 12px;
-}
-
-.img-row {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  align-items: center;
-}
-
-.img-row .el-input {
-  flex: 1;
 }
 
 .activity-select {
