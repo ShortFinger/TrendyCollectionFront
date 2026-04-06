@@ -83,7 +83,7 @@ import { Upload, Delete } from '@element-plus/icons-vue'
 import { uploadFile } from '@/utils/oss'
 
 const props = withDefaults(defineProps<{
-  modelValue: string
+  modelValue?: string
   accept?: 'image' | 'video' | 'all'
   dir: string
   maxSize?: number
