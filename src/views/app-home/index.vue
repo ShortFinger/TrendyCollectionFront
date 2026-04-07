@@ -42,6 +42,11 @@
             {{ slotLabel(row.slotType) }}
           </template>
         </el-table-column>
+        <el-table-column label="编码" width="160">
+          <template #default="{ row }">
+            <span class="slot-type-code">{{ row.slotType }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="sortOrder" label="sortOrder" width="100" />
         <el-table-column label="内容项数" width="100" align="center">
           <template #default="{ row }">
@@ -694,6 +699,11 @@ async function submitItem() {
 }
 
 .preview-activity-id {
+  font-family: ui-monospace, monospace;
+  color: #606266;
+}
+
+.slot-type-code {
   font-family: ui-monospace, monospace;
   color: #606266;
 }
