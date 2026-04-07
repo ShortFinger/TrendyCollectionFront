@@ -1,6 +1,7 @@
 import OSS from 'ali-oss'
 import { getStsToken, getCmsStsToken } from '@/api/oss'
 import type { StsTokenResponse, OssUploadResult } from '@/types/oss'
+import { buildPublicUrl } from '@/utils/ossUrl'
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const VIDEO_TYPES = ['video/mp4', 'video/webm']
@@ -48,6 +49,7 @@ function createOssClient(sts: StsTokenResponse): OSS {
     accessKeySecret: sts.accessKeySecret,
     stsToken: sts.securityToken,
     bucket: sts.bucket,
+    secure: true,
   })
 }
 
@@ -71,7 +73,7 @@ export async function uploadFile(
     },
   })
 
-  return { objectKey, name: file.name }
+  return { objectKey, url: buildPublicUrl(sts, objectKey), name: file.name }
 }
 
 export async function uploadCmsFile(
@@ -94,5 +96,5 @@ export async function uploadCmsFile(
     },
   })
 
-  return { objectKey, name: file.name }
+  return { objectKey, url: buildPublicUrl(sts, objectKey), name: file.name }
 }

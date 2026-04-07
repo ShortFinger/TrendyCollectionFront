@@ -4,17 +4,17 @@
     :class="{ 'is-disabled': disabled }"
   >
     <!-- 已上传：预览状态 -->
-    <div v-if="modelValue" class="media-upload__preview">
+    <div v-if="hasPreview" class="media-upload__preview">
       <template v-if="isVideo">
         <div class="media-upload__video-wrapper" @click="showVideoPreview = true">
-          <video :src="modelValue" class="media-upload__video-thumb" preload="metadata" />
+          <video :src="previewValue" class="media-upload__video-thumb" preload="metadata" />
           <div class="media-upload__play-icon">▶</div>
         </div>
       </template>
       <el-image
         v-else
-        :src="modelValue"
-        :preview-src-list="[modelValue]"
+        :src="previewValue"
+        :preview-src-list="[previewValue]"
         fit="cover"
         class="media-upload__image"
       />
@@ -69,7 +69,7 @@
 
     <!-- 视频预览弹窗 -->
     <el-dialog v-model="showVideoPreview" title="视频预览" width="640px" destroy-on-close>
-      <video :src="modelValue" controls autoplay style="width: 100%" />
+      <video :src="previewValue" controls autoplay style="width: 100%" />
     </el-dialog>
 
     <!-- 错误提示 -->
@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Upload, Delete } from '@element-plus/icons-vue'
 import { uploadFile } from '@/utils/oss'
 
@@ -105,6 +105,9 @@ const progress = ref(0)
 const errorMsg = ref('')
 const isDragover = ref(false)
 const showVideoPreview = ref(false)
+const uploadedPreviewUrl = ref('')
+const uploadedObjectKey = ref('')
+const localPreviewUrl = ref('')
 
 const IMAGE_EXTS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const VIDEO_EXTS = ['video/mp4', 'video/webm']
@@ -116,9 +119,31 @@ const inputAccept = computed(() => {
 })
 
 const isVideo = computed(() => {
-  if (!props.modelValue) return false
-  const lower = props.modelValue.toLowerCase()
+  if (!previewValue.value) return false
+  const lower = previewValue.value.toLowerCase()
   return lower.endsWith('.mp4') || lower.endsWith('.webm')
+})
+
+const previewValue = computed(() => localPreviewUrl.value || uploadedPreviewUrl.value || props.modelValue || '')
+const hasPreview = computed(() => !!previewValue.value)
+
+function clearLocalPreviewUrl() {
+  if (localPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(localPreviewUrl.value)
+  }
+  localPreviewUrl.value = ''
+}
+
+watch(() => props.modelValue, (val) => {
+  if (!val || val !== uploadedObjectKey.value) {
+    uploadedPreviewUrl.value = ''
+    uploadedObjectKey.value = ''
+    clearLocalPreviewUrl()
+  }
+})
+
+onBeforeUnmount(() => {
+  clearLocalPreviewUrl()
 })
 
 function triggerFileSelect() {
@@ -151,14 +176,19 @@ async function doUpload(file: File) {
   errorMsg.value = ''
   uploading.value = true
   progress.value = 0
+  clearLocalPreviewUrl()
+  localPreviewUrl.value = URL.createObjectURL(file)
 
   try {
     const result = await uploadFile(file, props.dir, (p) => {
       progress.value = p
     })
+    uploadedObjectKey.value = result.objectKey
+    uploadedPreviewUrl.value = result.url
     emit('update:modelValue', result.objectKey)
   } catch (e: unknown) {
     errorMsg.value = e instanceof Error ? e.message : '上传失败'
+    clearLocalPreviewUrl()
   } finally {
     uploading.value = false
     if (fileInputRef.value) {
@@ -180,6 +210,9 @@ function handleDrop(e: DragEvent) {
 }
 
 function handleDelete() {
+  clearLocalPreviewUrl()
+  uploadedPreviewUrl.value = ''
+  uploadedObjectKey.value = ''
   emit('update:modelValue', '')
   errorMsg.value = ''
 }

@@ -10,6 +10,7 @@ export interface StsTokenResponse {
 
 export interface OssUploadResult {
   objectKey: string
+  url: string
   name: string
 }
 
