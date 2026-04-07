@@ -8,6 +8,12 @@ export interface SysSettingVO {
   updateTime: string
 }
 
+export interface SysSettingCreateRequest {
+  settingType: string
+  settingConfig: string
+  remark?: string | null
+}
+
 export interface SysSettingUpdateRequest {
   settingConfig: string
   remark?: string | null
