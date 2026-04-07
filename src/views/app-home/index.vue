@@ -64,9 +64,12 @@
       <el-form label-width="100px">
         <el-form-item label="类型">
           <el-select v-model="newSlotType" style="width: 100%">
-            <el-option label="轮播行（banner_row）" value="banner_row" />
-            <el-option label="图标宫格（icon_grid）" value="icon_grid" />
-            <el-option label="活动卡片网格（activity_card_grid）" value="activity_card_grid" />
+            <el-option
+              v-for="row in enabledCatalogForSelect(state?.slotTypeCatalog)"
+              :key="row.code"
+              :label="`${row.label}（${row.code}）`"
+              :value="row.code"
+            />
           </el-select>
         </el-form-item>
       </el-form>
@@ -92,8 +95,10 @@
                 </div>
               </div>
             </template>
-            <el-image v-else-if="parsePayload(row.payload).imageUrl" :src="parsePayload(row.payload).imageUrl"
-              style="width: 48px; height: 48px" fit="cover" />
+            <AppCmsVisualImagePreview
+              v-else-if="parsePayload(row.payload).imageUrl"
+              :image-ref="parsePayload(row.payload).imageUrl"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="contentType" label="类型" width="110" />
@@ -181,7 +186,7 @@
         </el-form-item>
         <el-form-item label="生效时间">
           <el-date-picker v-model="itemTimeRange" type="datetimerange" range-separator="至" start-placeholder="开始"
-            end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+            end-placeholder="结束" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
         </el-form-item>
         <el-form-item label="App 最低版本">
           <el-input v-model="itemForm.minAppVersion" placeholder="可选，如 1.0.0" />
@@ -217,23 +222,27 @@ import {
 } from '@/api/appCms'
 import { fetchActivityList, getActivity } from '@/api/activity'
 import MediaUpload from '@/components/MediaUpload.vue'
+import AppCmsVisualImagePreview from '@/components/AppCmsVisualImagePreview.vue'
 import type { ActivityVO } from '@/types/activity'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
 import {
-  CONTENT_TYPE_BY_SLOT,
-  SLOT_TYPE_LABEL,
   buildPayload,
   parsePayload,
   validateVisualPayload,
-  isSlotType,
   defaultPayload,
   defaultActivityCardRefPayload,
   buildActivityCardRefPayload,
   parseActivityCardRefPayload,
   validateActivityCardRefPayload,
   type VisualPayload,
-  type SlotType,
 } from '@/utils/appCmsPayload'
+import {
+  catalogLabel,
+  defaultContentTypeForSlot,
+  enabledCatalogForSelect,
+  isKnownCatalogCode,
+  pickDefaultNewSlotType,
+} from '@/utils/slotTypeCatalog'
 
 const route = useRoute()
 const pageKey = computed(() => {
@@ -254,7 +263,7 @@ const pageDisplayLabel = computed(() => {
 })
 
 const slotDialogVisible = ref(false)
-const newSlotType = ref<SlotType>('banner_row')
+const newSlotType = ref<string>('')
 const slotSaving = ref(false)
 
 const drawerVisible = ref(false)
@@ -269,6 +278,15 @@ const activityOptions = ref<ActivityVO[]>([])
 const activitySearchLoading = ref(false)
 const readonlyActivityMoneyPrice = ref<number | null>(null)
 const itemTimeRange = ref<[string, string] | null>(null)
+/** Jackson `LocalDateTime` JSON uses `T` between date and time; space-separated strings fail to parse. */
+function toPickerLocalDateTime(raw: string): string {
+  let s = raw.trim()
+  if (!s) return s
+  if (!s.includes('T'))
+    s = s.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/, '$1T$2')
+  const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/.exec(s)
+  return m ? m[1] : s
+}
 const itemForm = ref({
   sortOrder: 0,
   channel: 'all',
@@ -282,8 +300,7 @@ const sortedSlots = computed(() => {
 })
 
 function slotLabel(type: string) {
-  if (isSlotType(type)) return SLOT_TYPE_LABEL[type]
-  return type
+  return catalogLabel(state.value?.slotTypeCatalog, type)
 }
 
 function activityCardPreview(row: EditorItemRow) {
@@ -295,11 +312,12 @@ const activityMoneyPriceDisplay = computed(() =>
   readonlyActivityMoneyPrice.value == null ? '' : String(readonlyActivityMoneyPrice.value),
 )
 
-/** 活动卡片表单项：槽位为 activity_card_grid，或编辑中的项为 activity_card_ref */
+/** 活动卡片表单项：目录 defaultContentType 为 activity_card_ref，或编辑中的项为 activity_card_ref */
 const isActivityItemMode = computed(() => {
   const slot = activeSlot.value
   if (!slot) return false
-  if (slot.slotType === 'activity_card_grid') return true
+  if (defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot.slotType) === 'activity_card_ref')
+    return true
   if (editingItemId.value != null) {
     const item = slot.items?.find((i) => i.id === editingItemId.value)
     if (item?.contentType === 'activity_card_ref') return true
@@ -419,11 +437,15 @@ async function doPublish() {
 }
 
 function openAddSlot() {
-  newSlotType.value = 'banner_row'
+  newSlotType.value = pickDefaultNewSlotType(state.value?.slotTypeCatalog)
   slotDialogVisible.value = true
 }
 
 async function submitNewSlot() {
+  if (!newSlotType.value?.trim() || enabledCatalogForSelect(state.value?.slotTypeCatalog).length === 0) {
+    ElMessage.warning('槽位类型配置为空')
+    return
+  }
   const nextOrder =
     sortedSlots.value.reduce((m, s) => Math.max(m, s.sortOrder ?? 0), -1) + 1
   slotSaving.value = true
@@ -467,7 +489,8 @@ function openItemDialog(item: EditorItemRow | null) {
 
   const slot = activeSlot.value
   const treatAsActivity =
-    slot?.slotType === 'activity_card_grid' || item?.contentType === 'activity_card_ref'
+    defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot?.slotType ?? '') ===
+      'activity_card_ref' || item?.contentType === 'activity_card_ref'
 
   if (item) {
     itemForm.value.sortOrder = item.sortOrder ?? 0
@@ -475,7 +498,7 @@ function openItemDialog(item: EditorItemRow | null) {
     itemForm.value.minAppVersion = item.minAppVersion ?? ''
     itemForm.value.maxAppVersion = item.maxAppVersion ?? ''
     if (item.startTime && item.endTime) {
-      itemTimeRange.value = [item.startTime, item.endTime]
+      itemTimeRange.value = [toPickerLocalDateTime(item.startTime), toPickerLocalDateTime(item.endTime)]
     } else {
       itemTimeRange.value = null
     }
@@ -527,13 +550,13 @@ async function submitItem() {
     ElMessage.warning('请先选择槽位')
     return
   }
-  if (!isSlotType(slot.slotType)) {
+  if (!isKnownCatalogCode(state.value?.slotTypeCatalog, slot.slotType)) {
     ElMessage.error('不支持的槽位类型')
     return
   }
 
   const activityMode =
-    slot.slotType === 'activity_card_grid' ||
+    defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot.slotType) === 'activity_card_ref' ||
     (editingItemId.value != null &&
       slot.items?.find((i) => i.id === editingItemId.value)?.contentType === 'activity_card_ref')
 
@@ -554,7 +577,12 @@ async function submitItem() {
       ElMessage.error(err)
       return
     }
-    contentType = CONTENT_TYPE_BY_SLOT[slot.slotType]
+    const ct = defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot.slotType)
+    if (!ct?.trim()) {
+      ElMessage.error('槽位未配置默认内容类型')
+      return
+    }
+    contentType = ct
     payloadJson = buildPayload(visualForm.value)
   }
 

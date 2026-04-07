@@ -1,17 +1,3 @@
-export type SlotType = 'banner_row' | 'icon_grid' | 'activity_card_grid'
-
-export const CONTENT_TYPE_BY_SLOT: Record<SlotType, string> = {
-  banner_row: 'banner_slide',
-  icon_grid: 'icon_entry',
-  activity_card_grid: 'activity_card_ref',
-}
-
-export const SLOT_TYPE_LABEL: Record<SlotType, string> = {
-  banner_row: '輪播行',
-  icon_grid: '圖標宮格',
-  activity_card_grid: '活動卡片網格',
-}
-
 export interface VisualPayload {
   imageUrl: string
   linkUrl: string
@@ -40,13 +26,31 @@ export function parsePayload(payload: string | undefined | null): VisualPayload 
   }
 }
 
-export function validateVisualPayload(form: VisualPayload): string | null {
-  if (!form.imageUrl?.trim()) return '請填寫圖片或上傳'
-  try {
-    new URL(form.imageUrl)
-  } catch {
-    return '圖片 URL 格式不正確'
+const MAX_IMAGE_REF_LEN = 2048
+
+/** Absolute http(s) URL, or OSS object key / path (MediaUpload stores objectKey, not full URL). */
+function isValidImageRef(raw: string): boolean {
+  const s = raw.trim()
+  if (!s || s.length > MAX_IMAGE_REF_LEN) return false
+  if (/[\r\n\u0000]/.test(s)) return false
+  const schemeMatch = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(s)
+  if (schemeMatch) {
+    const scheme = schemeMatch[1].toLowerCase()
+    if (scheme !== 'http' && scheme !== 'https') return false
+    try {
+      const u = new URL(s)
+      return u.protocol === 'http:' || u.protocol === 'https:'
+    } catch {
+      return false
+    }
   }
+  // Object key or site-relative path: no URL scheme
+  return true
+}
+
+export function validateVisualPayload(form: VisualPayload): string | null {
+  if (!form.imageUrl?.trim()) return '请填写图片或上传'
+  if (!isValidImageRef(form.imageUrl)) return '图片 URL 格式不正确'
   return null
 }
 
@@ -144,10 +148,6 @@ export function parseActivityCardRefPayload(payload: string | undefined | null):
 }
 
 export function validateActivityCardRefPayload(form: ActivityCardRefEditorForm): string | null {
-  if (!form.activityId?.trim()) return '請選擇活動或填寫 activityId'
+  if (!form.activityId?.trim()) return '请选择活动或填写 activityId'
   return null
-}
-
-export function isSlotType(s: string): s is SlotType {
-  return s === 'banner_row' || s === 'icon_grid' || s === 'activity_card_grid'
 }
