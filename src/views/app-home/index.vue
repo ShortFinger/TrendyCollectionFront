@@ -53,12 +53,20 @@
             {{ row.items?.length ?? 0 }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row, $index }">
             <el-button link type="primary" @click="openItemsDrawer(row)">内容项</el-button>
             <el-button link :disabled="$index === 0" @click="moveSlot($index, -1)">上移</el-button>
             <el-button link :disabled="$index === sortedSlots.length - 1" @click="moveSlot($index, 1)">
               下移
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              :loading="slotDeletingId === row.id"
+              @click="confirmDeleteSlot(row)"
+            >
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -222,6 +230,7 @@ import {
   publishPage,
   createSlot,
   updateSlot,
+  deleteSlot,
   createItem,
   updateItem,
 } from '@/api/appCms'
@@ -271,6 +280,7 @@ const enabledSlotTypeOptions = computed(() => slotTypeCatalog.value.filter((e) =
 const slotDialogVisible = ref(false)
 const newSlotType = ref<string>('')
 const slotSaving = ref(false)
+const slotDeletingId = ref<number | null>(null)
 
 const drawerVisible = ref(false)
 const activeSlot = ref<EditorSlotRow | null>(null)
@@ -459,6 +469,31 @@ async function submitNewSlot() {
     await load()
   } finally {
     slotSaving.value = false
+  }
+}
+
+async function confirmDeleteSlot(row: EditorSlotRow) {
+  const n = row.items?.length ?? 0
+  try {
+    await ElMessageBox.confirm(
+      `确定删除槽位「${slotLabel(row.slotType)}」（${row.slotType}）？其下 ${n} 个内容项将一并删除，且不可恢复。`,
+      '删除槽位',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  slotDeletingId.value = row.id
+  try {
+    await deleteSlot(pageKey.value, row.id)
+    ElMessage.success('已删除槽位')
+    if (activeSlot.value?.id === row.id) {
+      activeSlot.value = null
+      drawerVisible.value = false
+    }
+    await load()
+  } finally {
+    slotDeletingId.value = null
   }
 }
 

@@ -45,6 +45,12 @@ export function updateSlot(
   return request.put<any, Result<void>>(`${BASE}/pages/${encPage(pageKey)}/slots/${slotId}`, data)
 }
 
+export function deleteSlot(pageKey: string, slotId: number) {
+  return request.delete<any, Result<void>>(
+    `${BASE}/pages/${encPage(pageKey)}/slots/${slotId}`,
+  )
+}
+
 export function createItem(
   pageKey: string,
   slotId: number,
