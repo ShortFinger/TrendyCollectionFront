@@ -40,7 +40,7 @@ request.interceptors.response.use(
       ElMessage.error('登录已过期，请重新登录')
     } else if (error.response?.status === 403) {
       ElMessage.error('没有权限')
-    } else {
+    } else if (!error.config?.skipErrorMessage) {
       ElMessage.error(error.response?.data?.message || error.message || '网络错误')
     }
     return Promise.reject(error)

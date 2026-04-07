@@ -123,10 +123,7 @@ onMounted(() => {
     fetchAppPages()
   }
   if (authStore.token && !authStore.admin) {
-    authStore.fetchUserInfo().catch(() => {
-      authStore.logout()
-      router.push('/login')
-    })
+    void authStore.fetchUserInfo().catch(() => {})
   }
 })
 

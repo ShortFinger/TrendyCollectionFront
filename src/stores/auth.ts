@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { login as loginApi, getCurrentAdmin, getPublicKey } from '@/api/auth'
 import type { AdminVO } from '@/types/auth'
+import { axiosErrorMessage, isRequestTimeoutError } from '@/utils/httpErrors'
 import JSEncrypt from 'jsencrypt'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -24,9 +26,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchUserInfo() {
-    const { data } = await getCurrentAdmin()
-    admin.value = data
-    return data
+    try {
+      const { data } = await getCurrentAdmin({ skipErrorMessage: true })
+      admin.value = data
+      return data
+    } catch (e1) {
+      if (isRequestTimeoutError(e1)) {
+        const { data } = await getCurrentAdmin()
+        admin.value = data
+        return data
+      }
+      ElMessage.error(axiosErrorMessage(e1))
+      throw e1
+    }
   }
 
   function logout() {
