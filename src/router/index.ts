@@ -22,36 +22,6 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '仪表盘', icon: 'Odometer' },
       },
       {
-        path: 'app-mgmt',
-        name: 'AppMgmt',
-        component: ParentView,
-        redirect: '/app-mgmt/page/home',
-        meta: { title: 'APP管理', icon: 'Iphone' },
-        children: [
-          {
-            path: 'page-create',
-            name: 'AppPageCreate',
-            component: () => import('@/views/app-page-create/index.vue'),
-            meta: { title: '新增页面', hidden: true },
-          },
-          {
-            path: 'page/:pageKey',
-            name: 'AppPageEditor',
-            component: () => import('@/views/app-home/index.vue'),
-            meta: { title: 'APP 页面', hidden: true },
-          },
-          {
-            path: 'home',
-            redirect: '/app-mgmt/page/home',
-            meta: { hidden: true },
-          },
-        ],
-      },
-      {
-        path: 'app-home',
-        redirect: '/app-mgmt/page/home',
-      },
-      {
         path: 'goods',
         name: 'Goods',
         component: () => import('@/views/goods/index.vue'),
@@ -199,6 +169,36 @@ const routes: RouteRecordRaw[] = [
         ],
       },
       {
+        path: 'app-mgmt',
+        name: 'AppMgmt',
+        component: ParentView,
+        redirect: '/app-mgmt/page/home',
+        meta: { title: 'APP管理', icon: 'Iphone' },
+        children: [
+          {
+            path: 'page-create',
+            name: 'AppPageCreate',
+            component: () => import('@/views/app-page-create/index.vue'),
+            meta: { title: '新增页面', hidden: true },
+          },
+          {
+            path: 'page/:pageKey',
+            name: 'AppPageEditor',
+            component: () => import('@/views/app-home/index.vue'),
+            meta: { title: 'APP 页面', hidden: true },
+          },
+          {
+            path: 'home',
+            redirect: '/app-mgmt/page/home',
+            meta: { hidden: true },
+          },
+        ],
+      },
+      {
+        path: 'app-home',
+        redirect: '/app-mgmt/page/home',
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: ParentView,
@@ -222,6 +222,12 @@ const routes: RouteRecordRaw[] = [
             name: 'Staff',
             component: () => import('@/views/settings/staff/index.vue'),
             meta: { title: '人员设置' },
+          },
+          {
+            path: 'sys-settings',
+            name: 'SysSettings',
+            component: () => import('@/views/settings/sys-settings/index.vue'),
+            meta: { title: '设置项' },
           },
         ],
       },
