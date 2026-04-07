@@ -29,6 +29,7 @@ export interface SkuVO {
   recyclePrice: number
   originalPrice: number
   stockQuantity: number
+  isUnlimitedStock?: boolean
   imageUrl: string
   status: string
   openBoxAnimation: string
@@ -57,6 +58,7 @@ export interface SkuSaveRequest {
   recyclePrice?: number
   originalPrice?: number
   stockQuantity: number
+  isUnlimitedStock?: boolean
   imageUrl?: string
   status?: string
   openBoxAnimation?: string

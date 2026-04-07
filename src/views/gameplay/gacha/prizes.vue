@@ -201,7 +201,10 @@
           <el-input-number v-model="form.specialRewardProbability" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="库存" prop="stockQuantity">
-          <el-input-number v-model="form.stockQuantity" :min="0" style="width: 100%" />
+          <el-input-number v-model="form.stockQuantity" :min="0" :disabled="form.isUnlimitedStock" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="无限库存">
+          <el-switch v-model="form.isUnlimitedStock" />
         </el-form-item>
         <el-form-item label="主图 URL">
           <MediaUpload v-model="form.imageUrl" :dir="skuUploadDir('icon')" />
@@ -524,6 +527,7 @@ const form = reactive({
   rewardProbability: 0,
   specialRewardProbability: 0,
   stockQuantity: 0,
+  isUnlimitedStock: true,
   imageUrl: '',
   specAttributes: '',
   openBoxAnimation: '',
@@ -565,6 +569,7 @@ function buildPayload(): SkuSaveRequest {
     rewardProbability: form.rewardProbability,
     specialRewardProbability: form.specialRewardProbability,
     stockQuantity: form.stockQuantity,
+    isUnlimitedStock: form.isUnlimitedStock,
     imageUrl: form.imageUrl || undefined,
     specAttributes: form.specAttributes || undefined,
     openBoxAnimation: form.openBoxAnimation || undefined,
@@ -590,6 +595,7 @@ function resetForm() {
     rewardProbability: 0,
     specialRewardProbability: 0,
     stockQuantity: 0,
+    isUnlimitedStock: true,
     imageUrl: '',
     specAttributes: '',
     openBoxAnimation: '',
@@ -621,6 +627,7 @@ async function rowToForm(row: SkuVO) {
     rewardProbability: row.rewardProbability,
     specialRewardProbability: row.specialRewardProbability,
     stockQuantity: row.stockQuantity,
+    isUnlimitedStock: row.isUnlimitedStock ?? false,
     imageUrl: row.imageUrl || '',
     specAttributes: row.specAttributes || '',
     openBoxAnimation: row.openBoxAnimation || '',

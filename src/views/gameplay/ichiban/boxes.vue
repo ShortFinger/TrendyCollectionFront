@@ -308,6 +308,10 @@
           <el-input-number v-model="prizeForm.stockQuantity" :min="1" :step="1" style="width: 100%" />
           <span class="box-prize-fixed" style="display: block; margin-top: 6px">对应生成相同条数的 activity_box_item；编辑时可减少库存以删除未抽中签位。</span>
         </el-form-item>
+        <el-form-item label="无限库存">
+          <el-switch v-model="prizeForm.isUnlimitedStock" disabled />
+          <span class="box-prize-fixed" style="display: block; margin-top: 6px">箱子场景提交时会按规则强制为否，库存以签数为准。</span>
+        </el-form-item>
         <el-form-item label="主图 URL">
           <MediaUpload v-model="prizeForm.imageUrl" :dir="skuUploadDir('icon')" />
         </el-form-item>
@@ -778,6 +782,7 @@ const prizeForm = reactive({
   recyclePrice: undefined as number | undefined,
   originalPrice: undefined as number | undefined,
   stockQuantity: 1,
+  isUnlimitedStock: false,
   imageUrl: '',
   specAttributes: '',
   openBoxAnimation: '',
@@ -826,6 +831,8 @@ function buildPrizePayload(): SkuSaveRequest {
     rewardProbability: BOX_SKU_REWARD_PROBABILITY,
     specialRewardProbability: BOX_SKU_SPECIAL_REWARD_PROBABILITY,
     stockQuantity: prizeForm.stockQuantity,
+    // Box SKU rule: payload must always be finite stock.
+    isUnlimitedStock: false,
     imageUrl: prizeForm.imageUrl || undefined,
     specAttributes: prizeForm.specAttributes || undefined,
     openBoxAnimation: prizeForm.openBoxAnimation || undefined,
@@ -850,6 +857,7 @@ function resetPrizeForm() {
     recyclePrice: undefined,
     originalPrice: undefined,
     stockQuantity: 1,
+    isUnlimitedStock: false,
     imageUrl: '',
     specAttributes: '',
     openBoxAnimation: '',
@@ -879,6 +887,7 @@ async function rowToPrizeForm(row: SkuVO) {
     recyclePrice: row.recyclePrice ?? undefined,
     originalPrice: row.originalPrice ?? undefined,
     stockQuantity: row.stockQuantity ?? 1,
+    isUnlimitedStock: false,
     imageUrl: row.imageUrl || '',
     specAttributes: row.specAttributes || '',
     openBoxAnimation: row.openBoxAnimation || '',
