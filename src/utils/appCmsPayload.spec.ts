@@ -1,7 +1,47 @@
 import { describe, it, expect } from 'vitest'
-import { buildPayload, parsePayload, validateVisualPayload } from './appCmsPayload'
+import type { SlotTypeCatalogEntry } from '@/types/appCms'
+import {
+  buildPayload,
+  parsePayload,
+  validateVisualPayload,
+  activityItemModeFromCatalog,
+  defaultContentTypeForSlot,
+  findCatalogEntry,
+  isEnabledCatalogSlot,
+  slotLabelFromCatalog,
+} from './appCmsPayload'
+
+const sampleCatalog: SlotTypeCatalogEntry[] = [
+  {
+    code: 'banner_row',
+    label: '轮播行',
+    defaultContentType: 'banner_slide',
+    sortOrder: 10,
+    enabled: true,
+    editorProfile: 'visual_payload',
+  },
+  {
+    code: 'activity_card_grid',
+    label: '活动卡片网格',
+    defaultContentType: 'activity_card_ref',
+    sortOrder: 30,
+    enabled: false,
+    editorProfile: 'activity_card_ref',
+  },
+]
 
 describe('appCmsPayload', () => {
+  it('catalog lookups respect enabled and labels', () => {
+    expect(slotLabelFromCatalog(sampleCatalog, 'banner_row')).toBe('轮播行')
+    expect(slotLabelFromCatalog(sampleCatalog, 'unknown')).toBe('unknown')
+    expect(defaultContentTypeForSlot(sampleCatalog, 'banner_row')).toBe('banner_slide')
+    expect(isEnabledCatalogSlot(sampleCatalog, 'activity_card_grid')).toBe(false)
+    expect(findCatalogEntry(sampleCatalog, 'activity_card_grid')?.label).toBe('活动卡片网格')
+    expect(activityItemModeFromCatalog(sampleCatalog, 'banner_row')).toBe(false)
+    expect(activityItemModeFromCatalog(sampleCatalog, 'activity_card_grid')).toBe(true)
+    expect(activityItemModeFromCatalog(undefined, 'x', 'activity_card_ref')).toBe(true)
+  })
+
   it('roundtrips payload json', () => {
     const json = buildPayload({ imageUrl: 'https://a.com/x.png', linkUrl: '/p', title: 't' })
     expect(parsePayload(json)).toEqual({

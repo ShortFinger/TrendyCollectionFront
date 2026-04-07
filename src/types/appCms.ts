@@ -37,6 +37,6 @@ export interface SlotTypeCatalogEntry {
 export interface EditorStateResponse {
   page: EditorPageSummary
   slots: EditorSlotRow[]
-  /** Present when AppConfig exposes sys_setting catalog (required for slot editor). */
+  /** Injected by TrendyCollectionAdmin from sys_setting */
   slotTypeCatalog?: SlotTypeCatalogEntry[]
 }

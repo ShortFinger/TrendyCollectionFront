@@ -1,3 +1,42 @@
+import type { SlotTypeCatalogEntry } from '@/types/appCms'
+
+export function findCatalogEntry(
+  catalog: SlotTypeCatalogEntry[] | undefined,
+  code: string,
+): SlotTypeCatalogEntry | undefined {
+  return catalog?.find((e) => e.code === code)
+}
+
+export function slotLabelFromCatalog(catalog: SlotTypeCatalogEntry[] | undefined, code: string): string {
+  return findCatalogEntry(catalog, code)?.label ?? code
+}
+
+export function defaultContentTypeForSlot(
+  catalog: SlotTypeCatalogEntry[] | undefined,
+  code: string,
+): string | undefined {
+  return findCatalogEntry(catalog, code)?.defaultContentType
+}
+
+export function isEnabledCatalogSlot(
+  catalog: SlotTypeCatalogEntry[] | undefined,
+  code: string,
+): boolean {
+  const e = findCatalogEntry(catalog, code)
+  return !!e?.enabled
+}
+
+export function activityItemModeFromCatalog(
+  catalog: SlotTypeCatalogEntry[] | undefined,
+  slotType: string,
+  itemContentType?: string | null,
+): boolean {
+  if (itemContentType === 'activity_card_ref') return true
+  const e = findCatalogEntry(catalog, slotType)
+  if (e?.editorProfile === 'activity_card_ref') return true
+  return e?.defaultContentType === 'activity_card_ref'
+}
+
 export interface VisualPayload {
   imageUrl: string
   linkUrl: string

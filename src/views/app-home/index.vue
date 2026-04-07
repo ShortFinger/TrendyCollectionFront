@@ -65,10 +65,10 @@
         <el-form-item label="类型">
           <el-select v-model="newSlotType" style="width: 100%">
             <el-option
-              v-for="row in enabledCatalogForSelect(state?.slotTypeCatalog)"
-              :key="row.code"
-              :label="`${row.label}（${row.code}）`"
-              :value="row.code"
+              v-for="opt in enabledSlotTypeOptions"
+              :key="opt.code"
+              :label="`${opt.label}（${opt.code}）`"
+              :value="opt.code"
             />
           </el-select>
         </el-form-item>
@@ -226,23 +226,20 @@ import AppCmsVisualImagePreview from '@/components/AppCmsVisualImagePreview.vue'
 import type { ActivityVO } from '@/types/activity'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
 import {
+  activityItemModeFromCatalog,
   buildPayload,
   parsePayload,
   validateVisualPayload,
+  defaultContentTypeForSlot,
+  findCatalogEntry,
   defaultPayload,
   defaultActivityCardRefPayload,
   buildActivityCardRefPayload,
   parseActivityCardRefPayload,
   validateActivityCardRefPayload,
+  slotLabelFromCatalog,
   type VisualPayload,
 } from '@/utils/appCmsPayload'
-import {
-  catalogLabel,
-  defaultContentTypeForSlot,
-  enabledCatalogForSelect,
-  isKnownCatalogCode,
-  pickDefaultNewSlotType,
-} from '@/utils/slotTypeCatalog'
 
 const route = useRoute()
 const pageKey = computed(() => {
@@ -261,6 +258,10 @@ const pageDisplayLabel = computed(() => {
   if (t) return t
   return pageKey.value
 })
+
+const slotTypeCatalog = computed(() => state.value?.slotTypeCatalog ?? [])
+
+const enabledSlotTypeOptions = computed(() => slotTypeCatalog.value.filter((e) => e.enabled))
 
 const slotDialogVisible = ref(false)
 const newSlotType = ref<string>('')
@@ -300,7 +301,7 @@ const sortedSlots = computed(() => {
 })
 
 function slotLabel(type: string) {
-  return catalogLabel(state.value?.slotTypeCatalog, type)
+  return slotLabelFromCatalog(slotTypeCatalog.value, type)
 }
 
 function activityCardPreview(row: EditorItemRow) {
@@ -312,17 +313,13 @@ const activityMoneyPriceDisplay = computed(() =>
   readonlyActivityMoneyPrice.value == null ? '' : String(readonlyActivityMoneyPrice.value),
 )
 
-/** 活动卡片表单项：目录 defaultContentType 为 activity_card_ref，或编辑中的项为 activity_card_ref */
+/** 活动卡片表单项：目录约定或编辑中的项为 activity_card_ref */
 const isActivityItemMode = computed(() => {
   const slot = activeSlot.value
   if (!slot) return false
-  if (defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot.slotType) === 'activity_card_ref')
-    return true
-  if (editingItemId.value != null) {
-    const item = slot.items?.find((i) => i.id === editingItemId.value)
-    if (item?.contentType === 'activity_card_ref') return true
-  }
-  return false
+  const item =
+    editingItemId.value != null ? slot.items?.find((i) => i.id === editingItemId.value) : null
+  return activityItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
 })
 
 async function refreshActivityMoneyPrice(activityId: string) {
@@ -437,15 +434,16 @@ async function doPublish() {
 }
 
 function openAddSlot() {
-  newSlotType.value = pickDefaultNewSlotType(state.value?.slotTypeCatalog)
+  const opts = enabledSlotTypeOptions.value
+  if (!opts.length) {
+    ElMessage.warning('暂无可用槽位类型，请检查系统配置')
+    return
+  }
+  newSlotType.value = opts[0]!.code
   slotDialogVisible.value = true
 }
 
 async function submitNewSlot() {
-  if (!newSlotType.value?.trim() || enabledCatalogForSelect(state.value?.slotTypeCatalog).length === 0) {
-    ElMessage.warning('槽位类型配置为空')
-    return
-  }
   const nextOrder =
     sortedSlots.value.reduce((m, s) => Math.max(m, s.sortOrder ?? 0), -1) + 1
   slotSaving.value = true
@@ -489,8 +487,7 @@ function openItemDialog(item: EditorItemRow | null) {
 
   const slot = activeSlot.value
   const treatAsActivity =
-    defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot?.slotType ?? '') ===
-      'activity_card_ref' || item?.contentType === 'activity_card_ref'
+    !!slot && activityItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
 
   if (item) {
     itemForm.value.sortOrder = item.sortOrder ?? 0
@@ -550,15 +547,18 @@ async function submitItem() {
     ElMessage.warning('请先选择槽位')
     return
   }
-  if (!isKnownCatalogCode(state.value?.slotTypeCatalog, slot.slotType)) {
-    ElMessage.error('不支持的槽位类型')
+  if (!findCatalogEntry(slotTypeCatalog.value, slot.slotType)) {
+    ElMessage.error('配置中无该槽位类型')
     return
   }
 
-  const activityMode =
-    defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot.slotType) === 'activity_card_ref' ||
-    (editingItemId.value != null &&
-      slot.items?.find((i) => i.id === editingItemId.value)?.contentType === 'activity_card_ref')
+  const activityMode = activityItemModeFromCatalog(
+    slotTypeCatalog.value,
+    slot.slotType,
+    editingItemId.value != null
+      ? slot.items?.find((i) => i.id === editingItemId.value)?.contentType
+      : null,
+  )
 
   let contentType: string
   let payloadJson: string
@@ -577,12 +577,12 @@ async function submitItem() {
       ElMessage.error(err)
       return
     }
-    const ct = defaultContentTypeForSlot(state.value?.slotTypeCatalog, slot.slotType)
-    if (!ct?.trim()) {
-      ElMessage.error('槽位未配置默认内容类型')
+    const dct = defaultContentTypeForSlot(slotTypeCatalog.value, slot.slotType)
+    if (!dct) {
+      ElMessage.error('无法解析该槽位的默认内容类型')
       return
     }
-    contentType = ct
+    contentType = dct
     payloadJson = buildPayload(visualForm.value)
   }
 
