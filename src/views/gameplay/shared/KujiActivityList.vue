@@ -109,11 +109,14 @@
         <el-form-item label="轮播图">
           <MediaUpload v-model="form.images" :dir="uploadDir('images')" />
         </el-form-item>
+                <el-form-item label="角标（左上）">
+          <MediaUpload v-model="form.upperLeftCornerMark" :dir="uploadDir('corner-marks')" />
+        </el-form-item>
+        <el-form-item label="角标（右上）">
+          <MediaUpload v-model="form.upperRightCornerMark" :dir="uploadDir('corner-marks')" />
+        </el-form-item>
         <el-form-item label="角标（左下）">
           <MediaUpload v-model="form.lowerLeftCornerMark" :dir="uploadDir('corner-marks')" />
-        </el-form-item>
-        <el-form-item label="角标（左上）">
-          <MediaUpload v-model="form.upperLeftCornerMark" :dir="uploadDir('corner-marks')" />
         </el-form-item>
         <el-form-item label="角标（右下）">
           <MediaUpload v-model="form.lowerRightCornerMark" :dir="uploadDir('corner-marks')" />
@@ -215,6 +218,7 @@ const form = reactive({
   longThumb: '',
   lowerLeftCornerMark: '',
   upperLeftCornerMark: '',
+  upperRightCornerMark: '',
   lowerRightCornerMark: '',
   images: '',
   boxCount: 1,
@@ -259,6 +263,7 @@ function buildSavePayload(): ActivitySaveRequest {
     longThumb: form.longThumb || undefined,
     lowerLeftCornerMark: form.lowerLeftCornerMark || undefined,
     upperLeftCornerMark: form.upperLeftCornerMark || undefined,
+    upperRightCornerMark: form.upperRightCornerMark || undefined,
     lowerRightCornerMark: form.lowerRightCornerMark || undefined,
     images: form.images || undefined,
     moneyPrice: form.moneyPrice,
@@ -284,6 +289,7 @@ function resetForm() {
     longThumb: '',
     lowerLeftCornerMark: '',
     upperLeftCornerMark: '',
+    upperRightCornerMark: '',
     lowerRightCornerMark: '',
     images: '',
     boxCount: 1,
@@ -309,6 +315,7 @@ function rowToForm(row: ActivityVO) {
     longThumb: row.longThumb || '',
     lowerLeftCornerMark: row.lowerLeftCornerMark || '',
     upperLeftCornerMark: row.upperLeftCornerMark || '',
+    upperRightCornerMark: row.upperRightCornerMark || '',
     lowerRightCornerMark: row.lowerRightCornerMark || '',
     images: row.images || '',
     boxCount: row.boxCount ?? 1,
@@ -405,7 +412,12 @@ async function handleSubmit() {
       const usedFields = Object.entries(fieldMapping)
         .filter(([, formKey]) => {
           if (formKey === 'lowerLeftCornerMark') {
-            return form.lowerLeftCornerMark || form.upperLeftCornerMark || form.lowerRightCornerMark
+            return !!(
+              form.lowerLeftCornerMark ||
+              form.upperLeftCornerMark ||
+              form.upperRightCornerMark ||
+              form.lowerRightCornerMark
+            )
           }
           return !!(form as any)[formKey]
         })

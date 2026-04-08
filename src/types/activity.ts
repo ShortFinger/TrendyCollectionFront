@@ -1,4 +1,4 @@
-import type { PageQuery } from './api'
+﻿import type { PageQuery } from './api'
 
 export interface ActivityQueryRequest extends PageQuery {
   keyword?: string
@@ -16,6 +16,7 @@ export interface ActivityVO {
   lowerLeftCornerMark: string
   upperLeftCornerMark: string
   lowerRightCornerMark: string
+  upperRightCornerMark: string
   images: string
   moneyPrice: number
   scorePrice: number
@@ -49,6 +50,7 @@ export interface ActivitySaveRequest {
   lowerLeftCornerMark?: string
   upperLeftCornerMark?: string
   lowerRightCornerMark?: string
+  upperRightCornerMark?: string
   images?: string
   moneyPrice: number
   scorePrice: number
