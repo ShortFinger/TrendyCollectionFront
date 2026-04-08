@@ -81,6 +81,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Upload, Delete } from '@element-plus/icons-vue'
 import { uploadFile } from '@/utils/oss'
+import { resolveOssObjectToPublicUrl } from '@/utils/ossPreviewUrl'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -108,6 +109,8 @@ const showVideoPreview = ref(false)
 const uploadedPreviewUrl = ref('')
 const uploadedObjectKey = ref('')
 const localPreviewUrl = ref('')
+/** When v-model is an OSS object key (after load from server), resolve to https for image/video src. */
+const resolvedFromKey = ref('')
 
 const IMAGE_EXTS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const VIDEO_EXTS = ['video/mp4', 'video/webm']
@@ -124,7 +127,14 @@ const isVideo = computed(() => {
   return lower.endsWith('.mp4') || lower.endsWith('.webm')
 })
 
-const previewValue = computed(() => localPreviewUrl.value || uploadedPreviewUrl.value || props.modelValue || '')
+const previewValue = computed(
+  () =>
+    localPreviewUrl.value ||
+    uploadedPreviewUrl.value ||
+    resolvedFromKey.value ||
+    props.modelValue ||
+    '',
+)
 const hasPreview = computed(() => !!previewValue.value)
 
 function clearLocalPreviewUrl() {
@@ -141,6 +151,23 @@ watch(() => props.modelValue, (val) => {
     clearLocalPreviewUrl()
   }
 })
+
+watch(
+  () => props.modelValue,
+  async (val) => {
+    const v = typeof val === 'string' ? val.trim() : ''
+    if (!v || /^https?:\/\//i.test(v) || v.startsWith('blob:')) {
+      resolvedFromKey.value = ''
+      return
+    }
+    try {
+      resolvedFromKey.value = await resolveOssObjectToPublicUrl(v)
+    } catch {
+      resolvedFromKey.value = ''
+    }
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   clearLocalPreviewUrl()
@@ -184,7 +211,12 @@ async function doUpload(file: File) {
       progress.value = p
     })
     uploadedObjectKey.value = result.objectKey
-    uploadedPreviewUrl.value = result.url
+    try {
+      const signed = await resolveOssObjectToPublicUrl(result.objectKey)
+      uploadedPreviewUrl.value = signed || result.url
+    } catch {
+      uploadedPreviewUrl.value = result.url
+    }
     emit('update:modelValue', result.objectKey)
   } catch (e: unknown) {
     errorMsg.value = e instanceof Error ? e.message : '上传失败'
