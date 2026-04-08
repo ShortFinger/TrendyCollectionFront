@@ -26,3 +26,6 @@ coverage/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# Local git worktrees
+.worktrees/
