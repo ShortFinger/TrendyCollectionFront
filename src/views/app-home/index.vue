@@ -64,6 +64,7 @@
         <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row, $index }">
             <el-button link type="primary" @click="openItemsDrawer(row)">内容项</el-button>
+            <el-button link type="primary" @click="openSlotPayloadPreview(row)">预览 payload</el-button>
             <el-button link :disabled="$index === 0" @click="moveSlot($index, -1)">上移</el-button>
             <el-button link :disabled="$index === sortedSlots.length - 1" @click="moveSlot($index, 1)">
               下移
@@ -123,9 +124,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="contentType" label="类型" width="110" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openItemDialog(row)">编辑</el-button>
+            <el-button link type="primary" @click="openItemPayloadPreview(row)">预览 payload</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -244,6 +246,15 @@
         <el-button type="primary" :loading="itemSaving" @click="submitItem">保存</el-button>
       </template>
     </el-dialog>
+
+    <PayloadPreviewDrawer
+      v-model:visible="payloadPreviewVisible"
+      :title="payloadPreviewTitle"
+      :meta="payloadPreviewMeta"
+      :payload-raw="payloadPreviewRaw"
+      mode="json"
+      :default-expand-depth="2"
+    />
   </div>
 </template>
 
@@ -265,6 +276,7 @@ import {
 import { fetchActivityList, getActivity } from '@/api/activity'
 import MediaUpload from '@/components/MediaUpload.vue'
 import AppCmsVisualImagePreview from '@/components/AppCmsVisualImagePreview.vue'
+import PayloadPreviewDrawer from '@/components/PayloadPreviewDrawer.vue'
 import type { ActivityVO } from '@/types/activity'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
 import {
@@ -313,6 +325,10 @@ const slotDeletingId = ref<number | null>(null)
 
 const drawerVisible = ref(false)
 const activeSlot = ref<EditorSlotRow | null>(null)
+const payloadPreviewVisible = ref(false)
+const payloadPreviewTitle = ref('Payload 预览')
+const payloadPreviewMeta = ref<Record<string, string | number | null>>({})
+const payloadPreviewRaw = ref<unknown>(null)
 
 const itemDialogVisible = ref(false)
 const itemSaving = ref(false)
@@ -472,6 +488,13 @@ watch(
   { immediate: true },
 )
 
+watch(payloadPreviewVisible, (visible) => {
+  if (visible) return
+  payloadPreviewMeta.value = {}
+  payloadPreviewRaw.value = null
+  payloadPreviewTitle.value = 'Payload 预览'
+})
+
 async function doFork() {
   forking.value = true
   try {
@@ -569,6 +592,30 @@ async function moveSlot(index: number, delta: number) {
 function openItemsDrawer(slot: EditorSlotRow) {
   activeSlot.value = slot
   drawerVisible.value = true
+}
+
+function openSlotPayloadPreview(slot: EditorSlotRow) {
+  payloadPreviewTitle.value = 'Payload 预览 - 槽位'
+  payloadPreviewMeta.value = {
+    source: 'slot',
+    id: slot.id,
+    slotType: slot.slotType,
+    sortOrder: slot.sortOrder ?? 0,
+  }
+  payloadPreviewRaw.value = slot.payload ?? null
+  payloadPreviewVisible.value = true
+}
+
+function openItemPayloadPreview(item: EditorItemRow) {
+  payloadPreviewTitle.value = 'Payload 预览 - 内容项'
+  payloadPreviewMeta.value = {
+    source: 'item',
+    id: item.id,
+    contentType: item.contentType,
+    sortOrder: item.sortOrder ?? 0,
+  }
+  payloadPreviewRaw.value = item.payload ?? null
+  payloadPreviewVisible.value = true
 }
 
 function openItemDialog(item: EditorItemRow | null) {
