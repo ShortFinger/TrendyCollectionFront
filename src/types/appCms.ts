@@ -22,6 +22,7 @@ export interface EditorSlotRow {
   id: number
   slotType: string
   sortOrder: number
+  payload?: string | null
   items: EditorItemRow[]
 }
 
