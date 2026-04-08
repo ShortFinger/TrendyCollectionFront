@@ -97,7 +97,6 @@ export function validateVisualPayload(form: VisualPayload): string | null {
 export interface ActivityCardRefPayload {
   activityId: string
   title?: string
-  coverUrl?: string
   tag?: string
   desc?: string
   author?: string
@@ -117,7 +116,6 @@ export interface ActivityCardRefPayload {
 export type ActivityCardRefEditorForm = {
   activityId: string
   title: string
-  coverUrl: string
   tag: string
   desc: string
   author: string
@@ -137,7 +135,6 @@ export function defaultActivityCardRefPayload(): ActivityCardRefEditorForm {
   return {
     activityId: '',
     title: '',
-    coverUrl: '',
     tag: '',
     desc: '',
     author: '',
@@ -163,8 +160,6 @@ export function buildActivityCardRefPayload(form: ActivityCardRefEditorForm): st
   }
   const title = pick(form.title)
   if (title) out.title = title
-  const coverUrl = pick(form.coverUrl)
-  if (coverUrl) out.coverUrl = coverUrl
   const tag = pick(form.tag)
   if (tag) out.tag = tag
   const desc = pick(form.desc)
@@ -208,7 +203,6 @@ export function parseActivityCardRefPayload(payload: string | undefined | null):
     return {
       activityId,
       title: typeof o.title === 'string' ? o.title : '',
-      coverUrl: typeof o.coverUrl === 'string' ? o.coverUrl : '',
       tag: typeof o.tag === 'string' ? o.tag : '',
       desc: typeof o.desc === 'string' ? o.desc : '',
       author: typeof o.author === 'string' ? o.author : '',

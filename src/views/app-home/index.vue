@@ -131,7 +131,7 @@
       </el-table>
     </el-drawer>
 
-    <el-dialog v-model="itemDialogVisible" :title="editingItemId ? '编辑内容项' : '添加内容项'" width="620px" destroy-on-close
+    <el-dialog v-model="itemDialogVisible" :title="editingItemId ? '编辑内容项' : '添加内容项'" width="760px" destroy-on-close
       @closed="resetItemForm">
       <el-form :model="itemForm" label-width="110px">
         <template v-if="isActivityItemMode">
@@ -166,9 +166,6 @@
           <el-form-item label="标题">
             <el-input v-model="activityCardForm.title" placeholder="覆盖活动标题" />
           </el-form-item>
-          <el-form-item label="封面 URL">
-            <el-input v-model="activityCardForm.coverUrl" placeholder="覆盖 squareThumb 等" />
-          </el-form-item>
           <el-form-item label="标签">
             <el-input v-model="activityCardForm.tag" placeholder="覆盖展示标签" />
           </el-form-item>
@@ -187,27 +184,29 @@
           <el-form-item label="跳转 URL">
             <el-input v-model="activityCardForm.jumpUrl" placeholder="可选 path 或 H5" />
           </el-form-item>
-          <el-form-item label="方图">
-            <MediaUpload v-model="activityCardForm.squareThumb" :dir="`pages/${pageKey}`" />
-          </el-form-item>
-          <el-form-item label="长图">
-            <MediaUpload v-model="activityCardForm.longThumb" :dir="`pages/${pageKey}`" />
-          </el-form-item>
-          <el-form-item label="左上角标">
-            <MediaUpload v-model="activityCardForm.upperLeftCornerMark" :dir="`pages/${pageKey}`" />
-          </el-form-item>
-          <el-form-item label="右上角标">
-            <MediaUpload v-model="activityCardForm.upperRightCornerMark" :dir="`pages/${pageKey}`" />
-          </el-form-item>
-          <el-form-item label="左下角标">
-            <MediaUpload v-model="activityCardForm.lowerLeftCornerMark" :dir="`pages/${pageKey}`" />
-          </el-form-item>
-          <el-form-item label="右下角标">
-            <MediaUpload v-model="activityCardForm.lowerRightCornerMark" :dir="`pages/${pageKey}`" />
-          </el-form-item>
-          <el-form-item label="图集/视频">
-            <MediaUpload v-model="activityCardForm.images" :dir="`pages/${pageKey}`" />
-          </el-form-item>
+          <div class="media-upload-grid">
+            <el-form-item label="方图">
+              <MediaUpload v-model="activityCardForm.squareThumb" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="长图">
+              <MediaUpload v-model="activityCardForm.longThumb" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="左上角标">
+              <MediaUpload v-model="activityCardForm.upperLeftCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="右上角标">
+              <MediaUpload v-model="activityCardForm.upperRightCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="左下角标">
+              <MediaUpload v-model="activityCardForm.lowerLeftCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="右下角标">
+              <MediaUpload v-model="activityCardForm.lowerRightCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="图集/视频">
+              <MediaUpload v-model="activityCardForm.images" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+          </div>
         </template>
         <template v-else>
           <el-form-item label="图片">
@@ -798,5 +797,15 @@ async function submitItem() {
 .preview-activity-title {
   color: #303133;
   margin-top: 4px;
+}
+
+.media-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.media-upload-grid :deep(.el-form-item) {
+  margin-bottom: 18px;
 }
 </style>

@@ -96,7 +96,6 @@ describe('appCmsPayload', () => {
     const json = buildActivityCardRefPayload({
       activityId: 'a1',
       title: '',
-      coverUrl: '',
       tag: '',
       desc: '',
       author: '',
