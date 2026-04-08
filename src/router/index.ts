@@ -182,6 +182,12 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '新增页面', hidden: true },
           },
           {
+            path: 'global',
+            name: 'AppGlobalConfig',
+            component: () => import('@/views/app-home/index.vue'),
+            meta: { title: '通用配置' },
+          },
+          {
             path: 'page/:pageKey',
             name: 'AppPageEditor',
             component: () => import('@/views/app-home/index.vue'),

@@ -16,6 +16,14 @@
         </div>
       </div>
       <el-alert type="info" :closable="false" show-icon class="hint" title="发布成功后，C 端 App 因缓存可能存在短延迟后才看见最新内容。" />
+      <el-alert
+        v-if="route.name === 'AppGlobalConfig'"
+        type="info"
+        :closable="false"
+        show-icon
+        class="hint"
+        title="本页为全 App 组件默认值；若某页面在 CMS 中配置了相同类型的槽位，则以该页面为准。"
+      />
       <el-alert v-if="pageNotFound" type="warning" :closable="false" show-icon class="hint-not-found">
         该 pageKey 尚未建立或已被刪除。請前往
         <router-link to="/app-mgmt/page-create">新增页面</router-link>
@@ -257,6 +265,7 @@ import {
 
 const route = useRoute()
 const pageKey = computed(() => {
+  if (route.name === 'AppGlobalConfig') return '_global'
   const k = route.params.pageKey
   return typeof k === 'string' ? k : Array.isArray(k) ? (k[0] ?? '') : ''
 })
