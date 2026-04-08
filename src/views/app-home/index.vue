@@ -187,6 +187,27 @@
           <el-form-item label="跳转 URL">
             <el-input v-model="activityCardForm.jumpUrl" placeholder="可选 path 或 H5" />
           </el-form-item>
+          <el-form-item label="方图">
+            <MediaUpload v-model="activityCardForm.squareThumb" :dir="`pages/${pageKey}`" />
+          </el-form-item>
+          <el-form-item label="长图">
+            <MediaUpload v-model="activityCardForm.longThumb" :dir="`pages/${pageKey}`" />
+          </el-form-item>
+          <el-form-item label="左上角标">
+            <MediaUpload v-model="activityCardForm.upperLeftCornerMark" :dir="`pages/${pageKey}`" />
+          </el-form-item>
+          <el-form-item label="右上角标">
+            <MediaUpload v-model="activityCardForm.upperRightCornerMark" :dir="`pages/${pageKey}`" />
+          </el-form-item>
+          <el-form-item label="左下角标">
+            <MediaUpload v-model="activityCardForm.lowerLeftCornerMark" :dir="`pages/${pageKey}`" />
+          </el-form-item>
+          <el-form-item label="右下角标">
+            <MediaUpload v-model="activityCardForm.lowerRightCornerMark" :dir="`pages/${pageKey}`" />
+          </el-form-item>
+          <el-form-item label="图集/视频">
+            <MediaUpload v-model="activityCardForm.images" :dir="`pages/${pageKey}`" />
+          </el-form-item>
         </template>
         <template v-else>
           <el-form-item label="图片">
@@ -346,7 +367,27 @@ const isActivityItemMode = computed(() => {
   return activityItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
 })
 
-async function refreshActivityMoneyPrice(activityId: string) {
+const ACTIVITY_ASSET_FIELDS = [
+  'squareThumb',
+  'longThumb',
+  'lowerLeftCornerMark',
+  'upperLeftCornerMark',
+  'lowerRightCornerMark',
+  'upperRightCornerMark',
+  'images',
+] as const
+
+function backfillActivityAssetsIfEmpty(activity: ActivityVO) {
+  for (const key of ACTIVITY_ASSET_FIELDS) {
+    const current = activityCardForm.value[key]?.trim()
+    const incoming = (activity[key] ?? '').trim()
+    if (!current && incoming) {
+      activityCardForm.value[key] = incoming
+    }
+  }
+}
+
+async function refreshActivityData(activityId: string) {
   const id = activityId.trim()
   if (!id) {
     readonlyActivityMoneyPrice.value = null
@@ -354,7 +395,9 @@ async function refreshActivityMoneyPrice(activityId: string) {
   }
   try {
     const { data } = await getActivity(id)
+    ensureActivityOption(data)
     readonlyActivityMoneyPrice.value = data.moneyPrice ?? null
+    backfillActivityAssetsIfEmpty(data)
   } catch {
     readonlyActivityMoneyPrice.value = null
   }
@@ -385,11 +428,11 @@ async function onActivitySelectChange(id: string | null | undefined) {
     readonlyActivityMoneyPrice.value = null
     return
   }
-  await refreshActivityMoneyPrice(id)
+  await refreshActivityData(id)
 }
 
 async function onActivityIdBlur() {
-  await refreshActivityMoneyPrice(activityCardForm.value.activityId)
+  await refreshActivityData(activityCardForm.value.activityId)
 }
 
 async function load() {

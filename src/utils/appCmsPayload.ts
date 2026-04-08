@@ -104,6 +104,13 @@ export interface ActivityCardRefPayload {
   likes?: number
   jumpType?: string
   jumpUrl?: string
+  squareThumb?: string
+  longThumb?: string
+  lowerLeftCornerMark?: string
+  upperLeftCornerMark?: string
+  lowerRightCornerMark?: string
+  upperRightCornerMark?: string
+  images?: string
 }
 
 /** Form state for editor (string fields for inputs; likes as string) */
@@ -117,6 +124,13 @@ export type ActivityCardRefEditorForm = {
   likes: string
   jumpType: string
   jumpUrl: string
+  squareThumb: string
+  longThumb: string
+  lowerLeftCornerMark: string
+  upperLeftCornerMark: string
+  lowerRightCornerMark: string
+  upperRightCornerMark: string
+  images: string
 }
 
 export function defaultActivityCardRefPayload(): ActivityCardRefEditorForm {
@@ -130,6 +144,13 @@ export function defaultActivityCardRefPayload(): ActivityCardRefEditorForm {
     likes: '',
     jumpType: '',
     jumpUrl: '',
+    squareThumb: '',
+    longThumb: '',
+    lowerLeftCornerMark: '',
+    upperLeftCornerMark: '',
+    lowerRightCornerMark: '',
+    upperRightCornerMark: '',
+    images: '',
   }
 }
 
@@ -154,6 +175,20 @@ export function buildActivityCardRefPayload(form: ActivityCardRefEditorForm): st
   if (jumpType) out.jumpType = jumpType
   const jumpUrl = pick(form.jumpUrl)
   if (jumpUrl) out.jumpUrl = jumpUrl
+  const squareThumb = pick(form.squareThumb)
+  if (squareThumb) out.squareThumb = squareThumb
+  const longThumb = pick(form.longThumb)
+  if (longThumb) out.longThumb = longThumb
+  const lowerLeftCornerMark = pick(form.lowerLeftCornerMark)
+  if (lowerLeftCornerMark) out.lowerLeftCornerMark = lowerLeftCornerMark
+  const upperLeftCornerMark = pick(form.upperLeftCornerMark)
+  if (upperLeftCornerMark) out.upperLeftCornerMark = upperLeftCornerMark
+  const lowerRightCornerMark = pick(form.lowerRightCornerMark)
+  if (lowerRightCornerMark) out.lowerRightCornerMark = lowerRightCornerMark
+  const upperRightCornerMark = pick(form.upperRightCornerMark)
+  if (upperRightCornerMark) out.upperRightCornerMark = upperRightCornerMark
+  const images = pick(form.images)
+  if (images) out.images = images
   const likesStr = form.likes.trim()
   if (likesStr) {
     const n = Number(likesStr)
@@ -180,6 +215,13 @@ export function parseActivityCardRefPayload(payload: string | undefined | null):
       likes,
       jumpType: typeof o.jumpType === 'string' ? o.jumpType : '',
       jumpUrl: typeof o.jumpUrl === 'string' ? o.jumpUrl : '',
+      squareThumb: typeof o.squareThumb === 'string' ? o.squareThumb : '',
+      longThumb: typeof o.longThumb === 'string' ? o.longThumb : '',
+      lowerLeftCornerMark: typeof o.lowerLeftCornerMark === 'string' ? o.lowerLeftCornerMark : '',
+      upperLeftCornerMark: typeof o.upperLeftCornerMark === 'string' ? o.upperLeftCornerMark : '',
+      lowerRightCornerMark: typeof o.lowerRightCornerMark === 'string' ? o.lowerRightCornerMark : '',
+      upperRightCornerMark: typeof o.upperRightCornerMark === 'string' ? o.upperRightCornerMark : '',
+      images: typeof o.images === 'string' ? o.images : '',
     }
   } catch {
     return empty

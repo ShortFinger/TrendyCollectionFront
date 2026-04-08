@@ -9,6 +9,8 @@ import {
   findCatalogEntry,
   isEnabledCatalogSlot,
   slotLabelFromCatalog,
+  buildActivityCardRefPayload,
+  parseActivityCardRefPayload,
 } from './appCmsPayload'
 
 const sampleCatalog: SlotTypeCatalogEntry[] = [
@@ -88,5 +90,36 @@ describe('appCmsPayload', () => {
         title: '',
       }),
     ).toBe('图片 URL 格式不正确')
+  })
+
+  it('roundtrips activity_card_ref asset fields', () => {
+    const json = buildActivityCardRefPayload({
+      activityId: 'a1',
+      title: '',
+      coverUrl: '',
+      tag: '',
+      desc: '',
+      author: '',
+      likes: '',
+      jumpType: '',
+      jumpUrl: '',
+      squareThumb: 'pages/a/square.png',
+      longThumb: 'pages/a/long.png',
+      lowerLeftCornerMark: 'pages/a/ll.png',
+      upperLeftCornerMark: 'pages/a/ul.png',
+      lowerRightCornerMark: 'pages/a/lr.png',
+      upperRightCornerMark: 'pages/a/ur.png',
+      images: 'pages/a/video.mp4',
+    })
+    expect(parseActivityCardRefPayload(json)).toMatchObject({
+      activityId: 'a1',
+      squareThumb: 'pages/a/square.png',
+      longThumb: 'pages/a/long.png',
+      lowerLeftCornerMark: 'pages/a/ll.png',
+      upperLeftCornerMark: 'pages/a/ul.png',
+      lowerRightCornerMark: 'pages/a/lr.png',
+      upperRightCornerMark: 'pages/a/ur.png',
+      images: 'pages/a/video.mp4',
+    })
   })
 })
