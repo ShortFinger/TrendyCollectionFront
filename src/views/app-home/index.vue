@@ -254,6 +254,7 @@ import {
   updateItem,
 } from '@/api/appCms'
 import { fetchActivityList, getActivity } from '@/api/activity'
+import { messageIfActivityInvalidForCmsCardRef } from '@/utils/cmsActivityCardSaveGate'
 import MediaUpload from '@/components/MediaUpload.vue'
 import AppCmsVisualImagePreview from '@/components/AppCmsVisualImagePreview.vue'
 import PayloadPreviewDrawer from '@/components/PayloadPreviewDrawer.vue'
@@ -425,6 +426,7 @@ async function remoteSearchActivities(query: string) {
       keyword: query?.trim() || undefined,
       page: 1,
       size: 15,
+      status: 'ON_SHELF',
     })
     activityOptions.value = data.records ?? []
   } finally {
@@ -684,6 +686,18 @@ async function submitItem() {
     const errA = validateActivityCardRefPayload(activityCardForm.value)
     if (errA) {
       ElMessage.error(errA)
+      return
+    }
+    const aid = activityCardForm.value.activityId.trim()
+    try {
+      const { data: act } = await getActivity(aid)
+      const block = messageIfActivityInvalidForCmsCardRef(act)
+      if (block) {
+        ElMessage.error(block)
+        return
+      }
+    } catch {
+      ElMessage.error('活动不存在或已删除，请重新选择活动')
       return
     }
     contentType = 'activity_card_ref'

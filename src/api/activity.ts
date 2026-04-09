@@ -14,11 +14,18 @@ export function listActivities(params: ActivityQueryRequest) {
 }
 
 /** CMS / pickers: keyword search with small page size */
-export function fetchActivityList(params: { keyword?: string; page?: number; size?: number }) {
+export function fetchActivityList(params: {
+  keyword?: string
+  page?: number
+  size?: number
+  /** OFF_SHELF | ON_SHELF — 与后端 ActivityQueryRequest 一致 */
+  status?: string
+}) {
   return listActivities({
     page: params.page ?? 1,
     size: params.size ?? 15,
     keyword: params.keyword,
+    ...(params.status != null && params.status !== '' ? { status: params.status } : {}),
   })
 }
 
