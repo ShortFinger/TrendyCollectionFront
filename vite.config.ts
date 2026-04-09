@@ -17,7 +17,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/order-admin-api': {
-        target: 'http://localhost:8081',
+        target: 'http://localhost:8082',
         changeOrigin: true,
       },
     },
