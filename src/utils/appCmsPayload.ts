@@ -98,11 +98,6 @@ export interface ActivityCardRefPayload {
   activityId: string
   title?: string
   tag?: string
-  desc?: string
-  author?: string
-  likes?: number
-  jumpType?: string
-  jumpUrl?: string
   squareThumb?: string
   longThumb?: string
   lowerLeftCornerMark?: string
@@ -112,16 +107,11 @@ export interface ActivityCardRefPayload {
   images?: string
 }
 
-/** Form state for editor (string fields for inputs; likes as string) */
+/** Form state for editor (string fields for inputs) */
 export type ActivityCardRefEditorForm = {
   activityId: string
   title: string
   tag: string
-  desc: string
-  author: string
-  likes: string
-  jumpType: string
-  jumpUrl: string
   squareThumb: string
   longThumb: string
   lowerLeftCornerMark: string
@@ -136,11 +126,6 @@ export function defaultActivityCardRefPayload(): ActivityCardRefEditorForm {
     activityId: '',
     title: '',
     tag: '',
-    desc: '',
-    author: '',
-    likes: '',
-    jumpType: '',
-    jumpUrl: '',
     squareThumb: '',
     longThumb: '',
     lowerLeftCornerMark: '',
@@ -162,14 +147,6 @@ export function buildActivityCardRefPayload(form: ActivityCardRefEditorForm): st
   if (title) out.title = title
   const tag = pick(form.tag)
   if (tag) out.tag = tag
-  const desc = pick(form.desc)
-  if (desc) out.desc = desc
-  const author = pick(form.author)
-  if (author) out.author = author
-  const jumpType = pick(form.jumpType)
-  if (jumpType) out.jumpType = jumpType
-  const jumpUrl = pick(form.jumpUrl)
-  if (jumpUrl) out.jumpUrl = jumpUrl
   const squareThumb = pick(form.squareThumb)
   if (squareThumb) out.squareThumb = squareThumb
   const longThumb = pick(form.longThumb)
@@ -184,11 +161,6 @@ export function buildActivityCardRefPayload(form: ActivityCardRefEditorForm): st
   if (upperRightCornerMark) out.upperRightCornerMark = upperRightCornerMark
   const images = pick(form.images)
   if (images) out.images = images
-  const likesStr = form.likes.trim()
-  if (likesStr) {
-    const n = Number(likesStr)
-    if (!Number.isNaN(n)) out.likes = n
-  }
   return JSON.stringify(out)
 }
 
@@ -198,17 +170,10 @@ export function parseActivityCardRefPayload(payload: string | undefined | null):
   try {
     const o = JSON.parse(payload) as Partial<ActivityCardRefPayload>
     const activityId = typeof o.activityId === 'string' ? o.activityId : ''
-    const likes =
-      o.likes != null && !Number.isNaN(Number(o.likes)) ? String(Number(o.likes)) : ''
     return {
       activityId,
       title: typeof o.title === 'string' ? o.title : '',
       tag: typeof o.tag === 'string' ? o.tag : '',
-      desc: typeof o.desc === 'string' ? o.desc : '',
-      author: typeof o.author === 'string' ? o.author : '',
-      likes,
-      jumpType: typeof o.jumpType === 'string' ? o.jumpType : '',
-      jumpUrl: typeof o.jumpUrl === 'string' ? o.jumpUrl : '',
       squareThumb: typeof o.squareThumb === 'string' ? o.squareThumb : '',
       longThumb: typeof o.longThumb === 'string' ? o.longThumb : '',
       lowerLeftCornerMark: typeof o.lowerLeftCornerMark === 'string' ? o.lowerLeftCornerMark : '',

@@ -101,7 +101,7 @@
       </template>
     </el-dialog>
 
-    <el-drawer v-model="drawerVisible" :title="`内容项 — ${slotLabel(activeSlot?.slotType ?? '')}`" size="520px">
+    <el-drawer v-model="drawerVisible" :title="`内容项 — ${slotLabel(activeSlot?.slotType ?? '')}`" size="640px">
       <div class="drawer-actions">
         <el-button type="primary" size="small" :icon="Plus" @click="openItemDialog(null)">添加内容项</el-button>
       </div>
@@ -112,9 +112,7 @@
             <template v-if="row.contentType === 'activity_card_ref'">
               <div class="preview-activity">
                 <div class="preview-activity-id">{{ activityCardPreview(row).activityId || '—' }}</div>
-                <div v-if="activityCardPreview(row).title" class="preview-activity-title">
-                  {{ activityCardPreview(row).title }}
-                </div>
+                <div class="preview-activity-title">{{ activityCardPreview(row).titleDisplay }}</div>
               </div>
             </template>
             <AppCmsVisualImagePreview
@@ -161,30 +159,12 @@
           <el-form-item label="活动 ID">
             <el-input v-model="activityCardForm.activityId" placeholder="可手填或由上栏选择" @blur="onActivityIdBlur" />
           </el-form-item>
-          <el-form-item label="售价（只读）">
-            <el-input :model-value="activityMoneyPriceDisplay" disabled placeholder="选择活动后显示 moneyPrice" />
-          </el-form-item>
           <el-divider content-position="left">可选覆盖</el-divider>
           <el-form-item label="标题">
             <el-input v-model="activityCardForm.title" placeholder="覆盖活动标题" />
           </el-form-item>
           <el-form-item label="标签">
             <el-input v-model="activityCardForm.tag" placeholder="覆盖展示标签" />
-          </el-form-item>
-          <el-form-item label="描述">
-            <el-input v-model="activityCardForm.desc" type="textarea" :rows="2" placeholder="可选" />
-          </el-form-item>
-          <el-form-item label="作者">
-            <el-input v-model="activityCardForm.author" placeholder="可选" />
-          </el-form-item>
-          <el-form-item label="点赞数">
-            <el-input v-model="activityCardForm.likes" placeholder="可选数字" />
-          </el-form-item>
-          <el-form-item label="跳转类型">
-            <el-input v-model="activityCardForm.jumpType" placeholder="可选" />
-          </el-form-item>
-          <el-form-item label="跳转 URL">
-            <el-input v-model="activityCardForm.jumpUrl" placeholder="可选 path 或 H5" />
           </el-form-item>
           <div class="media-upload-grid">
             <el-form-item label="方图">
@@ -337,7 +317,6 @@ const visualForm = ref<VisualPayload>(defaultPayload())
 const activityCardForm = ref(defaultActivityCardRefPayload())
 const activityOptions = ref<ActivityVO[]>([])
 const activitySearchLoading = ref(false)
-const readonlyActivityMoneyPrice = ref<number | null>(null)
 const itemTimeRange = ref<[string, string] | null>(null)
 /** Jackson `LocalDateTime` JSON uses `T` between date and time; space-separated strings fail to parse. */
 function toPickerLocalDateTime(raw: string): string {
@@ -366,12 +345,13 @@ function slotLabel(type: string) {
 
 function activityCardPreview(row: EditorItemRow) {
   const p = parseActivityCardRefPayload(row.payload)
-  return { activityId: p.activityId.trim(), title: p.title?.trim() || '' }
+  const activityId = p.activityId.trim()
+  const title = (p.title ?? '').trim()
+  return {
+    activityId,
+    titleDisplay: title || '（未覆盖）',
+  }
 }
-
-const activityMoneyPriceDisplay = computed(() =>
-  readonlyActivityMoneyPrice.value == null ? '' : String(readonlyActivityMoneyPrice.value),
-)
 
 /** 活动卡片表单项：目录约定或编辑中的项为 activity_card_ref */
 const isActivityItemMode = computed(() => {
@@ -392,29 +372,43 @@ const ACTIVITY_ASSET_FIELDS = [
   'images',
 ] as const
 
-function backfillActivityAssetsIfEmpty(activity: ActivityVO) {
-  for (const key of ACTIVITY_ASSET_FIELDS) {
-    const current = activityCardForm.value[key]?.trim()
-    const incoming = (activity[key] ?? '').trim()
-    if (!current && incoming) {
-      activityCardForm.value[key] = incoming
+/** `always`: 选择活动 / ID 失焦 — 标题与媒体与接口一致；`if_empty`: 打开已有项 — 仅填空字段 */
+type ActivityFieldSyncMode = 'always' | 'if_empty'
+
+function applyActivityToCardForm(activity: ActivityVO, syncMode: ActivityFieldSyncMode) {
+  const incomingTitle = (activity.title ?? '').trim()
+  if (syncMode === 'always') {
+    activityCardForm.value.title = incomingTitle
+    for (const key of ACTIVITY_ASSET_FIELDS) {
+      activityCardForm.value[key] = (activity[key] ?? '').trim()
+    }
+  } else {
+    if (!activityCardForm.value.title?.trim() && incomingTitle) {
+      activityCardForm.value.title = incomingTitle
+    }
+    for (const key of ACTIVITY_ASSET_FIELDS) {
+      const current = activityCardForm.value[key]?.trim()
+      const incoming = (activity[key] ?? '').trim()
+      if (!current && incoming) {
+        activityCardForm.value[key] = incoming
+      }
     }
   }
 }
 
-async function refreshActivityData(activityId: string) {
+async function refreshActivityData(
+  activityId: string,
+  opts?: { syncMode: ActivityFieldSyncMode },
+) {
+  const syncMode: ActivityFieldSyncMode = opts?.syncMode ?? 'if_empty'
   const id = activityId.trim()
-  if (!id) {
-    readonlyActivityMoneyPrice.value = null
-    return
-  }
+  if (!id) return
   try {
     const { data } = await getActivity(id)
     ensureActivityOption(data)
-    readonlyActivityMoneyPrice.value = data.moneyPrice ?? null
-    backfillActivityAssetsIfEmpty(data)
+    applyActivityToCardForm(data, syncMode)
   } catch {
-    readonlyActivityMoneyPrice.value = null
+    /* keep form as-is */
   }
 }
 
@@ -439,15 +433,12 @@ async function remoteSearchActivities(query: string) {
 }
 
 async function onActivitySelectChange(id: string | null | undefined) {
-  if (!id?.trim()) {
-    readonlyActivityMoneyPrice.value = null
-    return
-  }
-  await refreshActivityData(id)
+  if (!id?.trim()) return
+  await refreshActivityData(id, { syncMode: 'always' })
 }
 
 async function onActivityIdBlur() {
-  await refreshActivityData(activityCardForm.value.activityId)
+  await refreshActivityData(activityCardForm.value.activityId, { syncMode: 'always' })
 }
 
 async function load() {
@@ -621,7 +612,6 @@ function openItemPayloadPreview(item: EditorItemRow) {
 function openItemDialog(item: EditorItemRow | null) {
   editingItemId.value = item?.id ?? null
   activityOptions.value = []
-  readonlyActivityMoneyPrice.value = null
 
   const slot = activeSlot.value
   const treatAsActivity =
@@ -640,17 +630,7 @@ function openItemDialog(item: EditorItemRow | null) {
     if (treatAsActivity) {
       activityCardForm.value = parseActivityCardRefPayload(item.payload)
       const aid = activityCardForm.value.activityId.trim()
-      if (aid) {
-        void (async () => {
-          try {
-            const { data } = await getActivity(aid)
-            ensureActivityOption(data)
-            readonlyActivityMoneyPrice.value = data.moneyPrice ?? null
-          } catch {
-            readonlyActivityMoneyPrice.value = null
-          }
-        })()
-      }
+      if (aid) void refreshActivityData(aid)
       visualForm.value = defaultPayload()
     } else {
       visualForm.value = parsePayload(item.payload)
@@ -675,7 +655,6 @@ function resetItemForm() {
   visualForm.value = defaultPayload()
   activityCardForm.value = defaultActivityCardRefPayload()
   activityOptions.value = []
-  readonlyActivityMoneyPrice.value = null
   itemTimeRange.value = null
 }
 

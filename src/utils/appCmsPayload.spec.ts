@@ -97,11 +97,6 @@ describe('appCmsPayload', () => {
       activityId: 'a1',
       title: '',
       tag: '',
-      desc: '',
-      author: '',
-      likes: '',
-      jumpType: '',
-      jumpUrl: '',
       squareThumb: 'pages/a/square.png',
       longThumb: 'pages/a/long.png',
       lowerLeftCornerMark: 'pages/a/ll.png',
@@ -120,5 +115,15 @@ describe('appCmsPayload', () => {
       upperRightCornerMark: 'pages/a/ur.png',
       images: 'pages/a/video.mp4',
     })
+  })
+
+  it('parse ignores legacy keys on activity_card_ref', () => {
+    const raw =
+      '{"activityId":"a1","desc":"old","author":"x","likes":3,"jumpType":"page","jumpUrl":"/p","title":"T"}'
+    const parsed = parseActivityCardRefPayload(raw)
+    expect(parsed.activityId).toBe('a1')
+    expect(parsed.title).toBe('T')
+    expect(Object.keys(parsed)).not.toContain('desc')
+    expect(Object.keys(parsed)).not.toContain('author')
   })
 })
