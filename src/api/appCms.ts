@@ -62,6 +62,21 @@ export function createItem(
   )
 }
 
+export function replaceSlotItems(
+  pageKey: string,
+  slotId: number,
+  body: { items: Record<string, unknown>[] },
+) {
+  return request.post<any, Result<unknown>>(
+    `${BASE}/pages/${encPage(pageKey)}/slots/${slotId}/items/replace`,
+    body,
+  )
+}
+
 export function updateItem(itemId: number, body: Record<string, unknown>) {
   return request.put<any, Result<void>>(`${BASE}/items/${itemId}`, body)
+}
+
+export function deleteItem(itemId: number) {
+  return request.delete<any, Result<void>>(`${BASE}/items/${itemId}`)
 }

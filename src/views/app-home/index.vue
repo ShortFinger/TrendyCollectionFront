@@ -104,6 +104,16 @@
     <el-drawer v-model="drawerVisible" :title="`内容项 — ${slotLabel(activeSlot?.slotType ?? '')}`" size="640px">
       <div class="drawer-actions">
         <el-button type="primary" size="small" :icon="Plus" @click="openItemDialog(null)">添加内容项</el-button>
+        <el-button
+          v-if="activeSlot?.slotType === 'category_list'"
+          type="warning"
+          size="small"
+          plain
+          :loading="categoryListAutoGenLoading"
+          @click="onAutoGenerateCategoryListItems"
+        >
+          从主数据自动生成
+        </el-button>
       </div>
       <el-table :data="activeSlot?.items ?? []" size="small" border>
         <el-table-column prop="sortOrder" label="序" width="56" />
@@ -128,10 +138,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="contentType" label="类型" width="110" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openItemDialog(row)">编辑</el-button>
             <el-button link type="primary" @click="openItemPayloadPreview(row)">预览 payload</el-button>
+            <el-button
+              link
+              type="danger"
+              :loading="itemDeletingId === row.id"
+              @click="confirmDeleteItem(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -310,6 +328,8 @@ import {
   updateSlot,
   deleteSlot,
   createItem,
+  deleteItem,
+  replaceSlotItems,
   updateItem,
 } from '@/api/appCms'
 import { fetchActivityList, getActivity } from '@/api/activity'
@@ -337,6 +357,7 @@ import {
   validateActivityCardRefPayload,
   defaultCategoryRefPayload,
   buildCategoryRefPayload,
+  categoryVoToCategoryRefEditorForm,
   parseCategoryRefPayload,
   validateCategoryRefPayload,
   slotLabelFromCatalog,
@@ -380,6 +401,8 @@ const payloadPreviewRaw = ref<unknown>(null)
 
 const itemDialogVisible = ref(false)
 const itemSaving = ref(false)
+const categoryListAutoGenLoading = ref(false)
+const itemDeletingId = ref<number | null>(null)
 const editingItemId = ref<number | null>(null)
 const visualForm = ref<VisualPayload>(defaultPayload())
 const activityCardForm = ref(defaultActivityCardRefPayload())
@@ -764,6 +787,89 @@ function openItemsDrawer(slot: EditorSlotRow) {
   drawerVisible.value = true
 }
 
+async function confirmDeleteItem(row: EditorItemRow) {
+  try {
+    await ElMessageBox.confirm('确定删除该内容项？删除后不可恢复。', '删除内容项', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  itemDeletingId.value = row.id
+  try {
+    await deleteItem(row.id)
+    ElMessage.success('已删除')
+    await load()
+    const slot = activeSlot.value
+    if (slot) {
+      const updated = state.value?.slots.find((s) => s.id === slot.id)
+      if (updated) activeSlot.value = updated
+    }
+    if (editingItemId.value === row.id) {
+      itemDialogVisible.value = false
+    }
+  } finally {
+    itemDeletingId.value = null
+  }
+}
+
+async function onAutoGenerateCategoryListItems() {
+  const slot = activeSlot.value
+  const pk = pageKey.value
+  if (!slot || !pk) return
+  try {
+    await ElMessageBox.confirm(
+      '将删除本槽下全部现有内容项，并按当前启用的根分类重新生成。是否继续？',
+      '从主数据自动生成',
+      { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  categoryListAutoGenLoading.value = true
+  try {
+    const size = 200
+    let page = 1
+    const all: CategoryVO[] = []
+    let total = Number.POSITIVE_INFINITY
+    while (all.length < total) {
+      const { data } = await listCategories({ page, size })
+      total = data.total ?? 0
+      const rec = data.records ?? []
+      if (rec.length === 0) break
+      all.push(...rec)
+      page += 1
+      if (rec.length < size) break
+    }
+    const enabled = all.filter((c) => c.status === CategoryEnableStatus.ENABLED)
+    if (enabled.length === 0) {
+      ElMessage.warning('没有启用的根分类')
+      return
+    }
+    const items = enabled.map((c, i) => ({
+      sortOrder: i,
+      contentType: 'category_ref',
+      channel: 'all',
+      payload: buildCategoryRefPayload(categoryVoToCategoryRefEditorForm(c)),
+    }))
+    await replaceSlotItems(pk, slot.id, { items })
+    ElMessage.success('已按主数据重新生成内容项')
+    await load()
+    const updated = state.value?.slots.find((s) => s.id === slot.id)
+    if (updated) activeSlot.value = updated
+  } catch (e: unknown) {
+    const msg =
+      typeof e === 'object' && e !== null && 'message' in e
+        ? String((e as { message?: unknown }).message)
+        : '请求失败'
+    ElMessage.error(`${msg}，请刷新页面后重试`)
+  } finally {
+    categoryListAutoGenLoading.value = false
+  }
+}
+
 function openSlotPayloadPreview(slot: EditorSlotRow) {
   payloadPreviewTitle.value = 'Payload 预览 - 槽位'
   payloadPreviewMeta.value = {
@@ -1029,6 +1135,9 @@ async function submitItem() {
 
 .drawer-actions {
   margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .activity-select {

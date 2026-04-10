@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SlotTypeCatalogEntry } from '@/types/appCms'
+import type { CategoryVO } from '@/types/category'
 import {
   buildPayload,
   parsePayload,
@@ -13,6 +14,7 @@ import {
   buildActivityCardRefPayload,
   parseActivityCardRefPayload,
   buildCategoryRefPayload,
+  categoryVoToCategoryRefEditorForm,
   parseCategoryRefPayload,
   validateCategoryRefPayload,
 } from './appCmsPayload'
@@ -130,6 +132,29 @@ describe('appCmsPayload', () => {
       upperRightCornerMark: 'pages/a/ur.png',
       images: 'pages/a/video.mp4',
     })
+  })
+
+  it('maps CategoryVO to category ref form for payload build', () => {
+    const vo: CategoryVO = {
+      id: 'cid-1',
+      title: ' 潮玩  ',
+      squareThumb: ' https://a/x.png ',
+      longThumb: '',
+      upperLeftCornerMark: '',
+      upperRightCornerMark: '',
+      lowerLeftCornerMark: '',
+      lowerRightCornerMark: '',
+      images: '[]',
+      status: 'ENABLED',
+      createTime: '',
+      updateTime: '',
+      parentId: null,
+    }
+    const json = buildCategoryRefPayload(categoryVoToCategoryRefEditorForm(vo))
+    const parsed = JSON.parse(json) as { categoryId: string; title?: string; squareThumb?: string }
+    expect(parsed.categoryId).toBe('cid-1')
+    expect(parsed.title).toBe('潮玩')
+    expect(parsed.squareThumb).toBe('https://a/x.png')
   })
 
   it('roundtrips category_ref overlay fields', () => {

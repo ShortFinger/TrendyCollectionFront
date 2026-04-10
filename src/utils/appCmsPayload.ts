@@ -1,4 +1,5 @@
 import type { SlotTypeCatalogEntry } from '@/types/appCms'
+import type { CategoryVO } from '@/types/category'
 
 export function findCatalogEntry(
   catalog: SlotTypeCatalogEntry[] | undefined,
@@ -86,6 +87,20 @@ export function defaultCategoryRefPayload(): CategoryRefEditorForm {
     lowerLeftCornerMark: '',
     lowerRightCornerMark: '',
     images: '',
+  }
+}
+
+export function categoryVoToCategoryRefEditorForm(c: CategoryVO): CategoryRefEditorForm {
+  return {
+    categoryId: (c.id ?? '').trim(),
+    title: (c.title ?? '').trim(),
+    squareThumb: (c.squareThumb ?? '').trim(),
+    longThumb: (c.longThumb ?? '').trim(),
+    upperLeftCornerMark: (c.upperLeftCornerMark ?? '').trim(),
+    upperRightCornerMark: (c.upperRightCornerMark ?? '').trim(),
+    lowerLeftCornerMark: (c.lowerLeftCornerMark ?? '').trim(),
+    lowerRightCornerMark: (c.lowerRightCornerMark ?? '').trim(),
+    images: (c.images ?? '').trim(),
   }
 }
 
