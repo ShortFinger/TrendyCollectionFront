@@ -115,6 +115,12 @@
                 <div class="preview-activity-title">{{ activityCardPreview(row).titleDisplay }}</div>
               </div>
             </template>
+            <template v-else-if="row.contentType === 'category_ref'">
+              <div class="preview-activity">
+                <div class="preview-activity-id">{{ categoryRefPreview(row).categoryId || '—' }}</div>
+                <div class="preview-activity-title">{{ categoryRefPreview(row).titleDisplay }}</div>
+              </div>
+            </template>
             <AppCmsVisualImagePreview
               v-else-if="parsePayload(row.payload).imageUrl"
               :image-ref="parsePayload(row.payload).imageUrl"
@@ -190,6 +196,59 @@
             </el-form-item>
           </div>
         </template>
+        <template v-else-if="isCategoryRefItemMode">
+          <el-form-item label="分类" required>
+            <el-select
+              v-model="categoryRefForm.categoryId"
+              class="activity-select"
+              filterable
+              remote
+              clearable
+              reserve-keyword
+              placeholder="搜索标题或选择分类"
+              :remote-method="remoteSearchCategories"
+              :loading="categorySearchLoading"
+              @change="onCategorySelectChange"
+            >
+              <el-option
+                v-for="c in categoryOptions"
+                :key="c.id"
+                :label="`${c.title} (${c.id})`"
+                :value="c.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="分类 ID">
+            <el-input v-model="categoryRefForm.categoryId" placeholder="可手填或由上栏选择" @blur="onCategoryIdBlur" />
+          </el-form-item>
+          <el-divider content-position="left">可选覆盖</el-divider>
+          <el-form-item label="标题">
+            <el-input v-model="categoryRefForm.title" placeholder="覆盖分类标题" />
+          </el-form-item>
+          <div class="media-upload-grid">
+            <el-form-item label="方图">
+              <MediaUpload v-model="categoryRefForm.squareThumb" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="长图">
+              <MediaUpload v-model="categoryRefForm.longThumb" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="左上角标">
+              <MediaUpload v-model="categoryRefForm.upperLeftCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="右上角标">
+              <MediaUpload v-model="categoryRefForm.upperRightCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="左下角标">
+              <MediaUpload v-model="categoryRefForm.lowerLeftCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="右下角标">
+              <MediaUpload v-model="categoryRefForm.lowerRightCornerMark" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+            <el-form-item label="图集/视频">
+              <MediaUpload v-model="categoryRefForm.images" :dir="`pages/${pageKey}`" />
+            </el-form-item>
+          </div>
+        </template>
         <template v-else>
           <el-form-item label="图片">
             <MediaUpload v-model="visualForm.imageUrl" :dir="`pages/${pageKey}`" />
@@ -254,14 +313,18 @@ import {
   updateItem,
 } from '@/api/appCms'
 import { fetchActivityList, getActivity } from '@/api/activity'
+import { getCategory, listCategories } from '@/api/category'
 import { messageIfActivityInvalidForCmsCardRef } from '@/utils/cmsActivityCardSaveGate'
 import MediaUpload from '@/components/MediaUpload.vue'
 import AppCmsVisualImagePreview from '@/components/AppCmsVisualImagePreview.vue'
 import PayloadPreviewDrawer from '@/components/PayloadPreviewDrawer.vue'
 import type { ActivityVO } from '@/types/activity'
+import type { CategoryVO } from '@/types/category'
 import type { EditorSlotRow, EditorItemRow, EditorStateResponse } from '@/types/appCms'
+import { CategoryEnableStatus } from '@/constants/domainCodes'
 import {
   activityItemModeFromCatalog,
+  categoryRefItemModeFromCatalog,
   buildPayload,
   parsePayload,
   validateVisualPayload,
@@ -272,6 +335,10 @@ import {
   buildActivityCardRefPayload,
   parseActivityCardRefPayload,
   validateActivityCardRefPayload,
+  defaultCategoryRefPayload,
+  buildCategoryRefPayload,
+  parseCategoryRefPayload,
+  validateCategoryRefPayload,
   slotLabelFromCatalog,
   type VisualPayload,
 } from '@/utils/appCmsPayload'
@@ -316,8 +383,11 @@ const itemSaving = ref(false)
 const editingItemId = ref<number | null>(null)
 const visualForm = ref<VisualPayload>(defaultPayload())
 const activityCardForm = ref(defaultActivityCardRefPayload())
+const categoryRefForm = ref(defaultCategoryRefPayload())
 const activityOptions = ref<ActivityVO[]>([])
 const activitySearchLoading = ref(false)
+const categoryOptions = ref<CategoryVO[]>([])
+const categorySearchLoading = ref(false)
 const itemTimeRange = ref<[string, string] | null>(null)
 /** Jackson `LocalDateTime` JSON uses `T` between date and time; space-separated strings fail to parse. */
 function toPickerLocalDateTime(raw: string): string {
@@ -354,6 +424,16 @@ function activityCardPreview(row: EditorItemRow) {
   }
 }
 
+function categoryRefPreview(row: EditorItemRow) {
+  const p = parseCategoryRefPayload(row.payload)
+  const categoryId = p.categoryId.trim()
+  const title = (p.title ?? '').trim()
+  return {
+    categoryId,
+    titleDisplay: title || '（未覆盖）',
+  }
+}
+
 /** 活动卡片表单项：目录约定或编辑中的项为 activity_card_ref */
 const isActivityItemMode = computed(() => {
   const slot = activeSlot.value
@@ -361,6 +441,15 @@ const isActivityItemMode = computed(() => {
   const item =
     editingItemId.value != null ? slot.items?.find((i) => i.id === editingItemId.value) : null
   return activityItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
+})
+
+/** 分类引用表单项：目录约定或编辑中的项为 category_ref */
+const isCategoryRefItemMode = computed(() => {
+  const slot = activeSlot.value
+  if (!slot) return false
+  const item =
+    editingItemId.value != null ? slot.items?.find((i) => i.id === editingItemId.value) : null
+  return categoryRefItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
 })
 
 const ACTIVITY_ASSET_FIELDS = [
@@ -441,6 +530,94 @@ async function onActivitySelectChange(id: string | null | undefined) {
 
 async function onActivityIdBlur() {
   await refreshActivityData(activityCardForm.value.activityId, { syncMode: 'always' })
+}
+
+function ensureCategoryOption(row: CategoryVO) {
+  if (!categoryOptions.value.some((c) => c.id === row.id)) {
+    categoryOptions.value = [row, ...categoryOptions.value]
+  }
+}
+
+function applyCategoryToRefForm(category: CategoryVO, syncMode: 'always' | 'if_empty') {
+  const incomingTitle = (category.title ?? '').trim()
+  if (syncMode === 'always') {
+    categoryRefForm.value.title = incomingTitle
+    categoryRefForm.value.squareThumb = (category.squareThumb ?? '').trim()
+    categoryRefForm.value.longThumb = (category.longThumb ?? '').trim()
+    categoryRefForm.value.upperLeftCornerMark = (category.upperLeftCornerMark ?? '').trim()
+    categoryRefForm.value.upperRightCornerMark = (category.upperRightCornerMark ?? '').trim()
+    categoryRefForm.value.lowerLeftCornerMark = (category.lowerLeftCornerMark ?? '').trim()
+    categoryRefForm.value.lowerRightCornerMark = (category.lowerRightCornerMark ?? '').trim()
+    categoryRefForm.value.images = (category.images ?? '').trim()
+  } else {
+    if (!categoryRefForm.value.title?.trim() && incomingTitle) {
+      categoryRefForm.value.title = incomingTitle
+    }
+    const optKeys: (keyof Pick<
+      CategoryVO,
+      | 'squareThumb'
+      | 'longThumb'
+      | 'upperLeftCornerMark'
+      | 'upperRightCornerMark'
+      | 'lowerLeftCornerMark'
+      | 'lowerRightCornerMark'
+      | 'images'
+    >)[] = [
+      'squareThumb',
+      'longThumb',
+      'upperLeftCornerMark',
+      'upperRightCornerMark',
+      'lowerLeftCornerMark',
+      'lowerRightCornerMark',
+      'images',
+    ]
+    for (const k of optKeys) {
+      const cur = (categoryRefForm.value as Record<string, string>)[k]?.trim()
+      const incoming = (category[k] ?? '').trim()
+      if (!cur && incoming) {
+        ;(categoryRefForm.value as Record<string, string>)[k] = incoming
+      }
+    }
+  }
+}
+
+async function refreshCategoryData(
+  categoryId: string,
+  opts?: { syncMode: 'always' | 'if_empty' },
+) {
+  const syncMode: 'always' | 'if_empty' = opts?.syncMode ?? 'if_empty'
+  const id = categoryId.trim()
+  if (!id) return
+  try {
+    const { data } = await getCategory(id)
+    ensureCategoryOption(data)
+    applyCategoryToRefForm(data, syncMode)
+  } catch {
+    /* keep form as-is */
+  }
+}
+
+async function remoteSearchCategories(query: string) {
+  categorySearchLoading.value = true
+  try {
+    const { data } = await listCategories({
+      keyword: query?.trim() || undefined,
+      page: 1,
+      size: 15,
+    })
+    categoryOptions.value = data.records ?? []
+  } finally {
+    categorySearchLoading.value = false
+  }
+}
+
+async function onCategorySelectChange(id: string | null | undefined) {
+  if (!id?.trim()) return
+  await refreshCategoryData(id, { syncMode: 'always' })
+}
+
+async function onCategoryIdBlur() {
+  await refreshCategoryData(categoryRefForm.value.categoryId, { syncMode: 'always' })
 }
 
 async function load() {
@@ -614,10 +791,13 @@ function openItemPayloadPreview(item: EditorItemRow) {
 function openItemDialog(item: EditorItemRow | null) {
   editingItemId.value = item?.id ?? null
   activityOptions.value = []
+  categoryOptions.value = []
 
   const slot = activeSlot.value
   const treatAsActivity =
     !!slot && activityItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
+  const treatAsCategory =
+    !!slot && categoryRefItemModeFromCatalog(slotTypeCatalog.value, slot.slotType, item?.contentType)
 
   if (item) {
     itemForm.value.sortOrder = item.sortOrder ?? 0
@@ -634,13 +814,22 @@ function openItemDialog(item: EditorItemRow | null) {
       const aid = activityCardForm.value.activityId.trim()
       if (aid) void refreshActivityData(aid)
       visualForm.value = defaultPayload()
+      categoryRefForm.value = defaultCategoryRefPayload()
+    } else if (treatAsCategory) {
+      categoryRefForm.value = parseCategoryRefPayload(item.payload)
+      const cid = categoryRefForm.value.categoryId.trim()
+      if (cid) void refreshCategoryData(cid)
+      visualForm.value = defaultPayload()
+      activityCardForm.value = defaultActivityCardRefPayload()
     } else {
       visualForm.value = parsePayload(item.payload)
       activityCardForm.value = defaultActivityCardRefPayload()
+      categoryRefForm.value = defaultCategoryRefPayload()
     }
   } else {
     visualForm.value = defaultPayload()
     activityCardForm.value = defaultActivityCardRefPayload()
+    categoryRefForm.value = defaultCategoryRefPayload()
     itemForm.value = {
       sortOrder: activeSlot.value?.items?.length ?? 0,
       channel: 'all',
@@ -656,7 +845,9 @@ function resetItemForm() {
   editingItemId.value = null
   visualForm.value = defaultPayload()
   activityCardForm.value = defaultActivityCardRefPayload()
+  categoryRefForm.value = defaultCategoryRefPayload()
   activityOptions.value = []
+  categoryOptions.value = []
   itemTimeRange.value = null
 }
 
@@ -672,6 +863,13 @@ async function submitItem() {
   }
 
   const activityMode = activityItemModeFromCatalog(
+    slotTypeCatalog.value,
+    slot.slotType,
+    editingItemId.value != null
+      ? slot.items?.find((i) => i.id === editingItemId.value)?.contentType
+      : null,
+  )
+  const categoryMode = categoryRefItemModeFromCatalog(
     slotTypeCatalog.value,
     slot.slotType,
     editingItemId.value != null
@@ -702,6 +900,25 @@ async function submitItem() {
     }
     contentType = 'activity_card_ref'
     payloadJson = buildActivityCardRefPayload(activityCardForm.value)
+  } else if (categoryMode) {
+    const errC = validateCategoryRefPayload(categoryRefForm.value)
+    if (errC) {
+      ElMessage.error(errC)
+      return
+    }
+    const cid = categoryRefForm.value.categoryId.trim()
+    try {
+      const { data: cat } = await getCategory(cid)
+      if (cat.status !== CategoryEnableStatus.ENABLED) {
+        ElMessage.error('分类未启用，无法引用')
+        return
+      }
+    } catch {
+      ElMessage.error('分类不存在或已删除，请重新选择分类')
+      return
+    }
+    contentType = 'category_ref'
+    payloadJson = buildCategoryRefPayload(categoryRefForm.value)
   } else {
     const err = validateVisualPayload(visualForm.value)
     if (err) {

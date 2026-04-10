@@ -5,12 +5,16 @@ import {
   parsePayload,
   validateVisualPayload,
   activityItemModeFromCatalog,
+  categoryRefItemModeFromCatalog,
   defaultContentTypeForSlot,
   findCatalogEntry,
   isEnabledCatalogSlot,
   slotLabelFromCatalog,
   buildActivityCardRefPayload,
   parseActivityCardRefPayload,
+  buildCategoryRefPayload,
+  parseCategoryRefPayload,
+  validateCategoryRefPayload,
 } from './appCmsPayload'
 
 const sampleCatalog: SlotTypeCatalogEntry[] = [
@@ -30,6 +34,14 @@ const sampleCatalog: SlotTypeCatalogEntry[] = [
     enabled: false,
     editorProfile: 'activity_card_ref',
   },
+  {
+    code: 'category_list',
+    label: '分类列表',
+    defaultContentType: 'category_ref',
+    sortOrder: 25,
+    enabled: true,
+    editorProfile: 'category_ref',
+  },
 ]
 
 describe('appCmsPayload', () => {
@@ -42,6 +54,9 @@ describe('appCmsPayload', () => {
     expect(activityItemModeFromCatalog(sampleCatalog, 'banner_row')).toBe(false)
     expect(activityItemModeFromCatalog(sampleCatalog, 'activity_card_grid')).toBe(true)
     expect(activityItemModeFromCatalog(undefined, 'x', 'activity_card_ref')).toBe(true)
+    expect(categoryRefItemModeFromCatalog(sampleCatalog, 'category_list')).toBe(true)
+    expect(categoryRefItemModeFromCatalog(sampleCatalog, 'banner_row')).toBe(false)
+    expect(categoryRefItemModeFromCatalog(undefined, 'x', 'category_ref')).toBe(true)
   })
 
   it('roundtrips payload json', () => {
@@ -115,6 +130,44 @@ describe('appCmsPayload', () => {
       upperRightCornerMark: 'pages/a/ur.png',
       images: 'pages/a/video.mp4',
     })
+  })
+
+  it('roundtrips category_ref overlay fields', () => {
+    const json = buildCategoryRefPayload({
+      categoryId: 'c1',
+      title: 'T',
+      squareThumb: 'pages/c/sq.png',
+      longThumb: '',
+      upperLeftCornerMark: '',
+      upperRightCornerMark: '',
+      lowerLeftCornerMark: 'pages/c/ll.png',
+      lowerRightCornerMark: '',
+      images: '',
+    })
+    expect(parseCategoryRefPayload(json)).toMatchObject({
+      categoryId: 'c1',
+      title: 'T',
+      squareThumb: 'pages/c/sq.png',
+      lowerLeftCornerMark: 'pages/c/ll.png',
+    })
+    expect(validateCategoryRefPayload(parseCategoryRefPayload(json))).toBeNull()
+  })
+
+  it('validateCategoryRefPayload rejects long fields', () => {
+    const long = 'x'.repeat(2049)
+    expect(
+      validateCategoryRefPayload({
+        categoryId: 'ok',
+        title: long,
+        squareThumb: '',
+        longThumb: '',
+        upperLeftCornerMark: '',
+        upperRightCornerMark: '',
+        lowerLeftCornerMark: '',
+        lowerRightCornerMark: '',
+        images: '',
+      }),
+    ).toMatch(/title/)
   })
 
   it('parse ignores legacy keys on activity_card_ref', () => {

@@ -37,6 +37,129 @@ export function activityItemModeFromCatalog(
   return e?.defaultContentType === 'activity_card_ref'
 }
 
+/** category_ref — keys must match AppConfig CategoryRefPayloadValidator allowlist */
+const MAX_CATEGORY_REF_FIELD_LEN = 2048
+
+export function categoryRefItemModeFromCatalog(
+  catalog: SlotTypeCatalogEntry[] | undefined,
+  slotType: string,
+  itemContentType?: string | null,
+): boolean {
+  if (itemContentType === 'category_ref') return true
+  const e = findCatalogEntry(catalog, slotType)
+  if (e?.editorProfile === 'category_ref') return true
+  return e?.defaultContentType === 'category_ref'
+}
+
+export interface CategoryRefPayload {
+  categoryId: string
+  title?: string
+  squareThumb?: string
+  longThumb?: string
+  upperLeftCornerMark?: string
+  upperRightCornerMark?: string
+  lowerLeftCornerMark?: string
+  lowerRightCornerMark?: string
+  images?: string
+}
+
+export type CategoryRefEditorForm = {
+  categoryId: string
+  title: string
+  squareThumb: string
+  longThumb: string
+  upperLeftCornerMark: string
+  upperRightCornerMark: string
+  lowerLeftCornerMark: string
+  lowerRightCornerMark: string
+  images: string
+}
+
+export function defaultCategoryRefPayload(): CategoryRefEditorForm {
+  return {
+    categoryId: '',
+    title: '',
+    squareThumb: '',
+    longThumb: '',
+    upperLeftCornerMark: '',
+    upperRightCornerMark: '',
+    lowerLeftCornerMark: '',
+    lowerRightCornerMark: '',
+    images: '',
+  }
+}
+
+export function buildCategoryRefPayload(form: CategoryRefEditorForm): string {
+  const id = form.categoryId.trim()
+  const out: CategoryRefPayload = { categoryId: id }
+  const pick = (s: string) => {
+    const t = s.trim()
+    return t.length ? t : undefined
+  }
+  const title = pick(form.title)
+  if (title) out.title = title
+  const squareThumb = pick(form.squareThumb)
+  if (squareThumb) out.squareThumb = squareThumb
+  const longThumb = pick(form.longThumb)
+  if (longThumb) out.longThumb = longThumb
+  const ul = pick(form.upperLeftCornerMark)
+  if (ul) out.upperLeftCornerMark = ul
+  const ur = pick(form.upperRightCornerMark)
+  if (ur) out.upperRightCornerMark = ur
+  const ll = pick(form.lowerLeftCornerMark)
+  if (ll) out.lowerLeftCornerMark = ll
+  const lr = pick(form.lowerRightCornerMark)
+  if (lr) out.lowerRightCornerMark = lr
+  const images = pick(form.images)
+  if (images) out.images = images
+  return JSON.stringify(out)
+}
+
+export function parseCategoryRefPayload(payload: string | undefined | null): CategoryRefEditorForm {
+  const empty = defaultCategoryRefPayload()
+  if (!payload || !payload.trim()) return empty
+  try {
+    const o = JSON.parse(payload) as Partial<CategoryRefPayload>
+    const categoryId = typeof o.categoryId === 'string' ? o.categoryId : ''
+    return {
+      categoryId,
+      title: typeof o.title === 'string' ? o.title : '',
+      squareThumb: typeof o.squareThumb === 'string' ? o.squareThumb : '',
+      longThumb: typeof o.longThumb === 'string' ? o.longThumb : '',
+      upperLeftCornerMark: typeof o.upperLeftCornerMark === 'string' ? o.upperLeftCornerMark : '',
+      upperRightCornerMark: typeof o.upperRightCornerMark === 'string' ? o.upperRightCornerMark : '',
+      lowerLeftCornerMark: typeof o.lowerLeftCornerMark === 'string' ? o.lowerLeftCornerMark : '',
+      lowerRightCornerMark: typeof o.lowerRightCornerMark === 'string' ? o.lowerRightCornerMark : '',
+      images: typeof o.images === 'string' ? o.images : '',
+    }
+  } catch {
+    return empty
+  }
+}
+
+function fieldTooLong(s: string): boolean {
+  return s.trim().length > MAX_CATEGORY_REF_FIELD_LEN
+}
+
+export function validateCategoryRefPayload(form: CategoryRefEditorForm): string | null {
+  if (!form.categoryId?.trim()) return '请选择分类或填写 categoryId'
+  if (fieldTooLong(form.categoryId)) return 'categoryId 长度超过上限'
+  const fields: (keyof CategoryRefEditorForm)[] = [
+    'title',
+    'squareThumb',
+    'longThumb',
+    'upperLeftCornerMark',
+    'upperRightCornerMark',
+    'lowerLeftCornerMark',
+    'lowerRightCornerMark',
+    'images',
+  ]
+  for (const k of fields) {
+    if (fieldTooLong(form[k] ?? '')) return `字段 ${String(k)} 长度超过上限`
+  }
+  return null
+}
+
 export interface VisualPayload {
   imageUrl: string
   linkUrl: string
