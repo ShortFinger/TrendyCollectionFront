@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import Layout from '@/layouts/Layout.vue'
 import ParentView from '@/layouts/ParentView.vue'
+import { useTabsStore, MAX_TABS } from '@/stores/tabs'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -254,13 +256,27 @@ router.beforeEach((to, _from, next) => {
     } else {
       next()
     }
-  } else {
-    if (!token) {
-      next('/login')
-    } else {
-      next()
+    return
+  }
+  if (!token) {
+    next('/login')
+    return
+  }
+  if (to.matched.length >= 2) {
+    const tabsStore = useTabsStore()
+    if (!tabsStore.has(to.fullPath) && tabsStore.tabs.length >= MAX_TABS) {
+      ElMessage.warning('最多打开 20 个标签页')
+      next(false)
+      return
     }
   }
+  next()
+})
+
+router.afterEach((to) => {
+  const tabsStore = useTabsStore()
+  tabsStore.syncFromRoute(to)
+  tabsStore.updateTitle(to)
 })
 
 export default router

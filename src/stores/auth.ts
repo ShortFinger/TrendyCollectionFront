@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useTabsStore } from '@/stores/tabs'
 import { login as loginApi, getCurrentAdmin, getPublicKey } from '@/api/auth'
 import type { AdminVO } from '@/types/auth'
 import { axiosErrorMessage, isRequestTimeoutError } from '@/utils/httpErrors'
@@ -42,6 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    useTabsStore().clear()
     token.value = ''
     admin.value = null
     localStorage.removeItem('token')

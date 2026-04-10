@@ -48,36 +48,58 @@
     </el-aside>
     <el-container direction="vertical">
       <el-header class="layout-header">
-        <div class="header-left">
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item v-if="parentTitle">{{ parentTitle }}</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
-          </el-breadcrumb>
+        <div class="header-top">
+          <div class="header-left">
+            <el-breadcrumb separator="/">
+              <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+              <el-breadcrumb-item v-if="parentTitle">{{ parentTitle }}</el-breadcrumb-item>
+              <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
+            </el-breadcrumb>
+          </div>
+          <div class="header-right">
+            <el-button class="refresh-btn" :icon="RefreshRight" text @click="refreshCurrentPage">
+              刷新
+            </el-button>
+            <el-dropdown trigger="click" @command="handleUserCommand">
+              <span class="user-trigger">
+                <el-icon><User /></el-icon>
+                <span>{{ displayName }}</span>
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="password">修改密码</el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
-        <div class="header-right">
-          <el-button class="refresh-btn" :icon="RefreshRight" text @click="refreshCurrentPage">
-            刷新
-          </el-button>
-          <el-dropdown trigger="click" @command="handleUserCommand">
-            <span class="user-trigger">
-              <el-icon><User /></el-icon>
-              <span>{{ displayName }}</span>
-              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="password">修改密码</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+        <div v-if="tabsStore.tabs.length" class="tab-row">
+          <div
+            v-for="t in tabsStore.tabs"
+            :key="t.fullPath"
+            class="tab-chip"
+            :class="{ active: t.fullPath === route.fullPath }"
+            @click="router.push(t.fullPath)"
+          >
+            <span class="tab-title">{{ t.title }}</span>
+            <button type="button" class="tab-close" aria-label="关闭" @click.stop="handleCloseTab(t)">
+              <el-icon class="tab-close-icon"><Close /></el-icon>
+            </button>
+          </div>
         </div>
       </el-header>
       <el-main class="layout-main">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" />
+            <keep-alive :max="MAX_TABS" :include="tabsStore.includeNames">
+              <component
+                v-if="Component"
+                :is="wrappedComponent(Component)"
+                :key="route.fullPath"
+              />
+            </keep-alive>
           </transition>
         </router-view>
       </el-main>
@@ -105,18 +127,22 @@
 
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted } from 'vue'
+import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { User, ArrowDown, RefreshRight } from '@element-plus/icons-vue'
+import { User, ArrowDown, RefreshRight, Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { useTabsStore, MAX_TABS, type AdminTabItem } from '@/stores/tabs'
+import { getOrCreateTabWrapper } from '@/utils/tabViewWrapper'
 import { updatePassword } from '@/api/auth'
 import { useAppPageList } from '@/composables/useAppPageList'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const tabsStore = useTabsStore()
 const { pages: appPages, loadError: appPagesError, fetchAppPages } = useAppPageList()
 
 onMounted(() => {
@@ -194,6 +220,18 @@ async function handleUpdatePassword() {
   }
 }
 
+function wrappedComponent(c: Component) {
+  return getOrCreateTabWrapper(route.fullPath, c)
+}
+
+function handleCloseTab(t: AdminTabItem) {
+  if (t.fullPath === route.fullPath && route.meta.hidden) {
+    void tabsStore.closeCurrentHiddenTab()
+  } else {
+    void tabsStore.closeByFullPath(t.fullPath)
+  }
+}
+
 function handleUserCommand(command: string) {
   if (command === 'logout') {
     ElMessageBox.confirm('确定要退出登录吗？', '提示', { type: 'warning' })
@@ -211,8 +249,10 @@ function handleUserCommand(command: string) {
   }
 }
 
-function refreshCurrentPage() {
-  router.go(0)
+async function refreshCurrentPage() {
+  const fp = route.fullPath
+  tabsStore.purgeTabForRemount(fp)
+  await router.replace(fp)
 }
 </script>
 
@@ -259,13 +299,124 @@ function refreshCurrentPage() {
 }
 
 .layout-header {
-  height: 56px;
+  height: auto;
+  min-height: 56px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   padding: 0 20px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  gap: 16px;
+}
+
+.tab-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 8px 16px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #fff;
+  border-top: 1px solid #ebeef5;
+}
+
+.tab-row::-webkit-scrollbar {
+  height: 5px;
+}
+
+.tab-row::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 3px;
+}
+
+.tab-row::-webkit-scrollbar-thumb:hover {
+  background: #c0c4cc;
+}
+
+.tab-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 220px;
+  min-height: 32px;
+  padding: 6px 4px 6px 12px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #606266;
+  background: #ebeef5;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.tab-chip:hover:not(.active) {
+  color: #409eff;
+  background: #e4e7ed;
+  border-color: #dcdfe6;
+}
+
+.tab-chip.active {
+  color: #303133;
+  font-weight: 500;
+  background: #fff;
+  border-color: #dcdfe6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 2px;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: #909399;
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+
+.tab-close-icon {
+  font-size: 12px;
+}
+
+.tab-chip.active .tab-close {
+  color: #909399;
+}
+
+.tab-close:hover {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.12);
+}
+
+.tab-chip.active .tab-close:hover {
+  color: #f56c6c;
 }
 
 .header-right .user-trigger {
@@ -281,9 +432,11 @@ function refreshCurrentPage() {
 }
 
 .layout-main {
-  background: #f0f2f5;
-  padding: 20px;
+  background: #fff;
+  padding: 12px 16px;
   overflow: auto;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .fade-enter-active,
