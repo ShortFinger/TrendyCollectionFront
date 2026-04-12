@@ -69,6 +69,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '分类管理', icon: 'Grid' },
       },
       {
+        path: 'media-gallery',
+        name: 'MediaGallery',
+        component: () => import('@/views/media-gallery/index.vue'),
+        meta: { title: '素材库', icon: 'Picture' },
+      },
+      {
         path: 'gameplay',
         name: 'Gameplay',
         component: ParentView,

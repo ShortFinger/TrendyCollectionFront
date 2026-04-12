@@ -67,7 +67,10 @@
         </el-form-item>
         <el-divider content-position="left">素材</el-divider>
         <el-form-item label="正方形封面" prop="squareThumb">
-          <MediaUpload v-model="form.squareThumb" :dir="uploadDir('square-thumb')" />
+          <div class="thumb-row">
+            <MediaUpload v-model="form.squareThumb" :dir="uploadDir('square-thumb')" />
+            <el-button class="gallery-btn" @click="squareGalleryOpen = true">从图库选择</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="长方形封面" prop="longThumb">
           <MediaUpload v-model="form.longThumb" :dir="uploadDir('long-thumb')" />
@@ -99,6 +102,8 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <MediaGalleryPicker v-model="squareGalleryOpen" @select="onSquareGallerySelect" />
   </div>
 </template>
 
@@ -110,6 +115,7 @@ import { listCategories, createCategory, updateCategory, deleteCategory } from '
 import type { CategoryVO, CategorySaveRequest } from '@/types/category'
 import { CategoryEnableStatus, categoryStatusText } from '@/constants/domainCodes'
 import MediaUpload from '@/components/MediaUpload.vue'
+import MediaGalleryPicker from '@/components/MediaGalleryPicker.vue'
 import { moveFiles } from '@/api/oss'
 
 const loading = ref(false)
@@ -125,6 +131,7 @@ const editId = ref('')
 const submitLoading = ref(false)
 const formRef = ref<FormInstance>()
 const tempId = ref('')
+const squareGalleryOpen = ref(false)
 
 const defaultForm = (): CategorySaveRequest => ({
   title: '',
@@ -145,6 +152,10 @@ function uploadDir(field: string) {
     return `categories/${editId.value}/${field}`
   }
   return `temp/${tempId.value}/${field}`
+}
+
+function onSquareGallerySelect(payload: { objectKey: string }) {
+  form.squareThumb = payload.objectKey
 }
 
 const rules: FormRules = {
@@ -278,5 +289,14 @@ onMounted(fetchData)
 <style scoped>
 .categories-page .filter-form {
   margin-bottom: 16px;
+}
+.thumb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gallery-btn {
+  flex-shrink: 0;
 }
 </style>
