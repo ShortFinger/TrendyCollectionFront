@@ -1,8 +1,10 @@
 <template>
-  <div
-    class="media-upload"
-    :class="{ 'is-disabled': disabled }"
-  >
+  <div class="media-upload-wrapper">
+    <div class="media-upload-row">
+      <div
+        class="media-upload"
+        :class="{ 'is-disabled': disabled }"
+      >
     <!-- 已上传：预览状态 -->
     <div v-if="hasPreview" class="media-upload__preview">
       <template v-if="isVideo">
@@ -74,6 +76,21 @@
 
     <!-- 错误提示 -->
     <div v-if="errorMsg" class="media-upload__error">{{ errorMsg }}</div>
+      </div>
+
+      <el-button
+        v-if="showGalleryBtn"
+        type="default"
+        size="small"
+        class="media-upload-gallery-btn"
+        :disabled="disabled"
+        @click="galleryVisible = true"
+      >
+        从图库选择
+      </el-button>
+    </div>
+
+    <MediaGalleryPicker v-model="galleryVisible" @select="onGallerySelect" />
   </div>
 </template>
 
@@ -82,6 +99,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Upload, Delete } from '@element-plus/icons-vue'
 import { uploadFile } from '@/utils/oss'
 import { resolveOssObjectToPublicUrl } from '@/utils/ossPreviewUrl'
+import MediaGalleryPicker from '@/components/MediaGalleryPicker.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -89,11 +107,14 @@ const props = withDefaults(defineProps<{
   dir: string
   maxSize?: number
   disabled?: boolean
+  /** 是否在组件旁显示「从图库选择」（仅图片类 accept 展示；纯视频不展示） */
+  showGalleryPicker?: boolean
 }>(), {
   modelValue: '',
   accept: 'image',
   maxSize: 50,
   disabled: false,
+  showGalleryPicker: true,
 })
 
 const emit = defineEmits<{
@@ -111,6 +132,14 @@ const uploadedObjectKey = ref('')
 const localPreviewUrl = ref('')
 /** When v-model is an OSS object key (after load from server), resolve to https for image/video src. */
 const resolvedFromKey = ref('')
+const galleryVisible = ref(false)
+
+const showGalleryBtn = computed(
+  () =>
+    props.showGalleryPicker &&
+    !props.disabled &&
+    (props.accept === 'image' || props.accept === 'all'),
+)
 
 const IMAGE_EXTS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const VIDEO_EXTS = ['video/mp4', 'video/webm']
@@ -248,9 +277,42 @@ function handleDelete() {
   emit('update:modelValue', '')
   errorMsg.value = ''
 }
+
+async function onGallerySelect(payload: { objectKey: string; previewUrl: string }) {
+  errorMsg.value = ''
+  clearLocalPreviewUrl()
+  uploadedObjectKey.value = payload.objectKey
+  uploadedPreviewUrl.value = payload.previewUrl
+  emit('update:modelValue', payload.objectKey)
+  try {
+    const signed = await resolveOssObjectToPublicUrl(payload.objectKey)
+    uploadedPreviewUrl.value = signed || payload.previewUrl
+  } catch {
+    uploadedPreviewUrl.value = payload.previewUrl
+  }
+}
 </script>
 
 <style scoped>
+.media-upload-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.media-upload-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.media-upload-gallery-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
 .media-upload {
   width: 120px;
   height: 120px;
