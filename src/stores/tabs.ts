@@ -76,17 +76,6 @@ export const useTabsStore = defineStore('tabs', () => {
   }
 
   /** Spec §4.5: close current → prefer right neighbor tab, else left, else dashboard. */
-  async function navigateAfterClosingCurrent(closedIdx: number) {
-    const right = tabs.value[closedIdx]
-    const left = tabs.value[closedIdx - 1]
-    const next = right ?? left
-    if (next) {
-      await router.push(next.fullPath)
-      return
-    }
-    await router.push('/dashboard')
-  }
-
   async function closeByFullPath(fullPath: string) {
     const idx = tabs.value.findIndex((t) => t.fullPath === fullPath)
     if (idx === -1) return
@@ -94,11 +83,23 @@ export const useTabsStore = defineStore('tabs', () => {
     const currentFp = router.currentRoute.value.fullPath
     const closingCurrent = currentFp === fullPath
 
+    if (!closingCurrent) {
+      removeTabEntry(fullPath)
+      return
+    }
+
+    // Navigate away before removing KeepAlive `include` for this route — removing the tab first
+    // while this view is still mounted can trigger patch errors (e.g. parentNode null).
+    const right = tabs.value[idx + 1]
+    const left = tabs.value[idx - 1]
+    const next = right ?? left
+    if (next) {
+      await router.push(next.fullPath)
+    } else {
+      await router.push('/dashboard')
+    }
+    await nextTick()
     removeTabEntry(fullPath)
-
-    if (!closingCurrent) return
-
-    await navigateAfterClosingCurrent(idx)
   }
 
   /**

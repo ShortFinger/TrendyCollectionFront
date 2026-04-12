@@ -97,7 +97,7 @@
               <component
                 v-if="Component"
                 :is="wrappedComponent(Component)"
-                :key="route.fullPath"
+                :key="`${route.fullPath}:${tabRemountSeq[route.fullPath] ?? 0}`"
               />
             </keep-alive>
           </transition>
@@ -144,6 +144,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 const tabsStore = useTabsStore()
 const { pages: appPages, loadError: appPagesError, fetchAppPages } = useAppPageList()
+
+/** Per-tab remount counter so「刷新」can force a new instance without yanking KeepAlive `include` while still on the route (avoids DOM patch errors). */
+const tabRemountSeq = reactive<Record<string, number>>({})
 
 onMounted(() => {
   if (localStorage.getItem('token')) {
@@ -249,10 +252,9 @@ function handleUserCommand(command: string) {
   }
 }
 
-async function refreshCurrentPage() {
+function refreshCurrentPage() {
   const fp = route.fullPath
-  tabsStore.purgeTabForRemount(fp)
-  await router.replace(fp)
+  tabRemountSeq[fp] = (tabRemountSeq[fp] ?? 0) + 1
 }
 </script>
 
