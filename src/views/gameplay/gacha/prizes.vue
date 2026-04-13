@@ -194,9 +194,6 @@
         <el-form-item label="开奖概率" prop="rewardProbability">
           <el-input-number v-model="form.rewardProbability" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="特殊开奖概率" prop="specialRewardProbability">
-          <el-input-number v-model="form.specialRewardProbability" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
         <el-form-item label="库存" prop="stockQuantity">
           <el-input-number v-model="form.stockQuantity" :min="0" :disabled="form.isUnlimitedStock" style="width: 100%" />
         </el-form-item>
@@ -547,7 +544,6 @@ const form = reactive({
   recyclePrice: 0,
   originalPrice: 0,
   rewardProbability: 0,
-  specialRewardProbability: 0,
   stockQuantity: 0,
   isUnlimitedStock: true,
   imageUrl: '',
@@ -576,7 +572,6 @@ const formRules: FormRules = {
   name: [{ required: true, message: '请输入奖品名称', trigger: 'blur' }],
   selectedProductIds: [{ required: true, validator: productIdsValidator, trigger: 'change' }],
   rewardProbability: [{ required: true, message: '请输入开奖概率', trigger: 'blur' }],
-  specialRewardProbability: [{ required: true, message: '请输入特殊开奖概率', trigger: 'blur' }],
   stockQuantity: [{ required: true, message: '请输入库存', trigger: 'blur' }],
   rewardLevelId: [{ validator: rewardLevelValidator, trigger: 'change' }],
 }
@@ -586,7 +581,6 @@ function buildPayload(): SkuSaveRequest {
     name: form.name,
     productIds: form.selectedProductIds.length > 0 ? JSON.stringify(form.selectedProductIds) : undefined,
     rewardProbability: form.rewardProbability,
-    specialRewardProbability: form.specialRewardProbability,
     stockQuantity: form.stockQuantity,
     isUnlimitedStock: form.isUnlimitedStock,
     imageUrl: form.imageUrl || undefined,
@@ -611,7 +605,6 @@ function resetForm() {
     recyclePrice: 0,
     originalPrice: 0,
     rewardProbability: 0,
-    specialRewardProbability: 0,
     stockQuantity: 0,
     isUnlimitedStock: true,
     imageUrl: '',
@@ -642,7 +635,6 @@ async function rowToForm(row: SkuVO) {
     recyclePrice: row.recyclePrice ?? 0,
     originalPrice: row.originalPrice ?? 0,
     rewardProbability: row.rewardProbability,
-    specialRewardProbability: row.specialRewardProbability,
     stockQuantity: row.stockQuantity,
     isUnlimitedStock: row.isUnlimitedStock ?? false,
     imageUrl: row.imageUrl || '',

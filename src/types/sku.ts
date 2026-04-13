@@ -24,7 +24,6 @@ export interface SkuVO {
   name: string
   specAttributes: string
   rewardProbability: number
-  specialRewardProbability: number
   recyclePrice: number
   originalPrice: number
   stockQuantity: number
@@ -52,7 +51,6 @@ export interface SkuSaveRequest {
   name: string
   specAttributes?: string
   rewardProbability: number
-  specialRewardProbability: number
   recyclePrice?: number
   originalPrice?: number
   stockQuantity: number

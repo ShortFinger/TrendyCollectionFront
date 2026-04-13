@@ -589,7 +589,6 @@ interface DraftCopiedSku {
 
 /** 箱内开奖概率由后端固定为 100% */
 const BOX_SKU_REWARD_PROBABILITY = 100
-const BOX_SKU_SPECIAL_REWARD_PROBABILITY = 100
 
 const route = useRoute()
 const router = useRouter()
@@ -852,7 +851,6 @@ function buildPrizePayload(): SkuSaveRequest {
     productIds: prizeForm.selectedProductIds.length > 0 ? JSON.stringify(prizeForm.selectedProductIds) : undefined,
     activityType: SkuMarketActivityType.LOTTERY,
     rewardProbability: BOX_SKU_REWARD_PROBABILITY,
-    specialRewardProbability: BOX_SKU_SPECIAL_REWARD_PROBABILITY,
     stockQuantity: prizeForm.stockQuantity,
     // Box SKU rule: payload must always be finite stock.
     isUnlimitedStock: false,
