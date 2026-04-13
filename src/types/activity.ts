@@ -30,6 +30,7 @@ export interface ActivityVO {
   scorePrice: number
   profitRate: number
   visitTotal: number
+  /** 每用户参与次数上限；0 表示不限制 */
   perUserLimit: number
   sales: number
   status: string
@@ -63,6 +64,7 @@ export interface ActivitySaveRequest {
   moneyPrice: number
   scorePrice: number
   profitRate?: number
+  /** 每用户参与次数上限；0 表示不限制 */
   perUserLimit: number
   /** 新建可不传（服务端默认 1/5/10）；编辑必填 */
   multiDrawTiers?: MultiDrawTierItem[]

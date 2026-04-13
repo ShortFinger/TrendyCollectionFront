@@ -143,7 +143,8 @@
           <span class="hint">由系统根据 SKU 成本自动计算</span>
         </el-form-item>
         <el-form-item label="每用户限次" prop="perUserLimit">
-          <el-input-number v-model="form.perUserLimit" :min="1" style="width: 100%" />
+          <el-input-number v-model="form.perUserLimit" :min="0" :step="1" style="width: 100%" />
+          <span class="hint">0 表示不限制</span>
         </el-form-item>
         <el-form-item label="连抽档位">
           <MultiDrawTierEditor v-model="form.multiDrawTiers" />
@@ -221,6 +222,7 @@ import {
   formatTierSummary,
 } from '@/utils/activityMultiDraw'
 import { moveFiles } from '@/api/oss'
+import { perUserLimitFormRule } from '@/utils/activityPerUserLimitRule'
 
 const props = defineProps<{
   activityType: 'ICHIBAN' | 'UNLIMITED'
@@ -269,7 +271,7 @@ const form = reactive({
   moneyPrice: 0,
   scorePrice: 0,
   profitRate: 0,
-  perUserLimit: 1,
+  perUserLimit: 0,
   multiDrawTiers: defaultMultiDrawTiers(),
   openBoxAnimation: '',
   tags: '',
@@ -285,7 +287,7 @@ const formRules = computed<FormRules>(() => {
     boxCount: [{ required: true, message: '请输入最大箱子数', trigger: 'blur' }],
     moneyPrice: [{ required: true, message: '请输入价格', trigger: 'blur' }],
     scorePrice: [{ required: true, message: '请输入积分价格', trigger: 'blur' }],
-    perUserLimit: [{ required: true, message: '请输入限次', trigger: 'blur' }],
+    perUserLimit: [perUserLimitFormRule],
   }
   if (props.activityType === 'ICHIBAN') {
     base.finalPrizeSkuId = [
@@ -359,7 +361,7 @@ function resetForm() {
     moneyPrice: 0,
     scorePrice: 0,
     profitRate: 0,
-    perUserLimit: 1,
+    perUserLimit: 0,
     multiDrawTiers: defaultMultiDrawTiers(),
     openBoxAnimation: '',
     tags: '',

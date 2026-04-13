@@ -129,7 +129,8 @@
           <span class="hint">由系统根据 SKU 成本自动计算</span>
         </el-form-item>
         <el-form-item label="每用户限次" prop="perUserLimit">
-          <el-input-number v-model="form.perUserLimit" :min="1" style="width: 100%" />
+          <el-input-number v-model="form.perUserLimit" :min="0" :step="1" style="width: 100%" />
+          <span class="hint">0 表示不限制</span>
         </el-form-item>
         <el-form-item label="连抽档位">
           <MultiDrawTierEditor v-model="form.multiDrawTiers" />
@@ -208,6 +209,7 @@ import type { CategoryVO } from '@/types/category'
 import { ActivityTypeCode } from '@/constants/domainCodes'
 import MediaUpload from '@/components/MediaUpload.vue'
 import { moveFiles } from '@/api/oss'
+import { perUserLimitFormRule } from '@/utils/activityPerUserLimitRule'
 
 const router = useRouter()
 
@@ -250,7 +252,7 @@ const form = reactive({
   moneyPrice: 0,
   scorePrice: 0,
   profitRate: 0,
-  perUserLimit: 1,
+  perUserLimit: 0,
   multiDrawTiers: defaultMultiDrawTiers(),
   openBoxAnimation: '',
   tags: '',
@@ -271,7 +273,7 @@ const formRules: FormRules = {
   title: [{ required: true, message: '请输入卡池名称', trigger: 'blur' }],
   moneyPrice: [{ required: true, message: '请输入价格', trigger: 'blur' }],
   scorePrice: [{ required: true, message: '请输入积分价格', trigger: 'blur' }],
-  perUserLimit: [{ required: true, message: '请输入限次', trigger: 'blur' }],
+  perUserLimit: [perUserLimitFormRule],
 }
 
 function buildSavePayload(): ActivitySaveRequest {
@@ -314,7 +316,7 @@ function resetForm() {
     moneyPrice: 0,
     scorePrice: 0,
     profitRate: 0,
-    perUserLimit: 1,
+    perUserLimit: 0,
     multiDrawTiers: defaultMultiDrawTiers(),
     openBoxAnimation: '',
     tags: '',
