@@ -1,5 +1,13 @@
 ﻿import type { PageQuery } from './api'
 
+/** 连抽档位（与 OrderAdmin MultiDrawTierItem 对齐） */
+export interface MultiDrawTierItem {
+  drawCount: number
+  moneyDiscount: number
+  scoreDiscount: number
+  sortOrder?: number
+}
+
 export interface ActivityQueryRequest extends PageQuery {
   keyword?: string
   status?: string
@@ -25,7 +33,7 @@ export interface ActivityVO {
   perUserLimit: number
   sales: number
   status: string
-  multiBuyDiscount: number
+  multiDrawTiers?: MultiDrawTierItem[]
   openBoxAnimation: string
   tags: string
   joinUserTotal: number
@@ -56,7 +64,8 @@ export interface ActivitySaveRequest {
   scorePrice: number
   profitRate?: number
   perUserLimit: number
-  multiBuyDiscount?: number
+  /** 新建可不传（服务端默认 1/5/10）；编辑必填 */
+  multiDrawTiers?: MultiDrawTierItem[]
   openBoxAnimation?: string
   tags?: string
   activityType?: string

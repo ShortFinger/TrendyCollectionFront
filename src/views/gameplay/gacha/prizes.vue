@@ -23,7 +23,7 @@
               {{ activity.profitRate != null ? `${activity.profitRate}%` : '-' }}
             </span>
           </el-descriptions-item>
-          <el-descriptions-item label="连开优惠">{{ activity.multiBuyDiscount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="连抽档位">{{ formatActivityTierSummary(activity) }}</el-descriptions-item>
           <el-descriptions-item label="每用户限次">{{ activity.perUserLimit }}</el-descriptions-item>
           <el-descriptions-item label="销量">{{ activity.sales }}</el-descriptions-item>
           <el-descriptions-item label="参与用户">{{ activity.joinUserTotal }}</el-descriptions-item>
@@ -397,6 +397,32 @@ const activityId = route.params.activityId as string
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
 
+function formatActivityTierSummary(a: ActivityVO | null): string {
+  const t = a?.multiDrawTiers
+  if (!t?.length) return '-'
+  return [...t]
+    .map((x) => x.drawCount)
+    .filter((n) => typeof n === 'number')
+    .sort((a, b) => a - b)
+    .join('/')
+}
+
+function multiDrawTiersForActivitySave(a: ActivityVO) {
+  if (a.multiDrawTiers?.length) {
+    return a.multiDrawTiers.map((t) => ({
+      drawCount: t.drawCount,
+      moneyDiscount: t.moneyDiscount,
+      scoreDiscount: t.scoreDiscount,
+      sortOrder: t.sortOrder,
+    }))
+  }
+  return [
+    { drawCount: 1, moneyDiscount: 0, scoreDiscount: 0 },
+    { drawCount: 5, moneyDiscount: 0, scoreDiscount: 0 },
+    { drawCount: 10, moneyDiscount: 0, scoreDiscount: 0 },
+  ]
+}
+
 const simDialogVisible = ref(false)
 const simLoading = ref(false)
 const simResult = ref<LotterySimulationResponse | null>(null)
@@ -731,6 +757,7 @@ async function recalcProfitRate() {
       scorePrice: activity.value.scorePrice,
       profitRate,
       perUserLimit: activity.value.perUserLimit,
+      multiDrawTiers: multiDrawTiersForActivitySave(activity.value),
     })
     activity.value.profitRate = profitRate
   } catch (e) {

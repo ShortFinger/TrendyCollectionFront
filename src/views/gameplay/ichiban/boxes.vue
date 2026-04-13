@@ -19,7 +19,7 @@
           <el-descriptions-item label="单抽价(¥)">¥{{ activity.moneyPrice }}</el-descriptions-item>
           <el-descriptions-item label="积分价">{{ activity.scorePrice }}</el-descriptions-item>
           <el-descriptions-item label="最大箱子数">{{ activity.boxCount ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="连开优惠">{{ activity.multiBuyDiscount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="连抽档位">{{ formatActivityTierSummary(activity) }}</el-descriptions-item>
           <el-descriptions-item label="每用户限次">{{ activity.perUserLimit }}</el-descriptions-item>
           <el-descriptions-item label="销量">{{ activity.sales }}</el-descriptions-item>
           <el-descriptions-item label="参与用户">{{ activity.joinUserTotal }}</el-descriptions-item>
@@ -601,6 +601,16 @@ function levelUploadDir(field: string) {
 
 const actLoading = ref(false)
 const activity = ref<ActivityVO | null>(null)
+
+function formatActivityTierSummary(a: ActivityVO | null): string {
+  const t = a?.multiDrawTiers
+  if (!t?.length) return '-'
+  return [...t]
+    .map((x) => x.drawCount)
+    .filter((n) => typeof n === 'number')
+    .sort((a, b) => a - b)
+    .join('/')
+}
 
 const activityListPath = computed(() =>
   route.path.startsWith('/gameplay/unlimited') ? '/gameplay/unlimited' : '/gameplay/ichiban'

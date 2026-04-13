@@ -52,8 +52,13 @@
             <el-button link type="primary" size="small" @click="goToPrizes(row)">编辑奖品</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="连开优惠" width="100">
-          <template #default="{ row }">{{ row.multiBuyDiscount ?? 0 }}</template>
+        <el-table-column label="连抽档位" min-width="200">
+          <template #default="{ row }">
+            <div class="tier-list-cell">
+              <span class="tier-list-cell__summary">{{ formatTierSummary(row) }}</span>
+              <el-button link type="primary" size="small" @click="openTierDialog(row)">连抽设置</el-button>
+            </div>
+          </template>
         </el-table-column>
         <el-table-column prop="perUserLimit" label="每用户限次" width="110" />
         <el-table-column prop="sales" label="销量" width="80" />
@@ -126,8 +131,8 @@
         <el-form-item label="每用户限次" prop="perUserLimit">
           <el-input-number v-model="form.perUserLimit" :min="1" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="连开优惠">
-          <el-input-number v-model="form.multiBuyDiscount" :min="0" style="width: 100%" />
+        <el-form-item label="连抽档位">
+          <MultiDrawTierEditor v-model="form.multiDrawTiers" />
         </el-form-item>
         <el-form-item label="开箱动画">
           <MediaUpload v-model="form.openBoxAnimation" accept="video" :dir="uploadDir('open-box-animation')" />
@@ -156,6 +161,24 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="tierDialogVisible"
+      title="连抽设置"
+      width="720px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div v-loading="tierDialogLoading" style="min-height: 120px">
+        <MultiDrawTierEditor v-if="!tierDialogLoading && tierDialogVo" v-model="tierDialogTiers" />
+      </div>
+      <template #footer>
+        <el-button @click="tierDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="tierDialogSaveLoading" :disabled="!tierDialogVo" @click="saveTierDialog">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -164,9 +187,23 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { listActivities, createActivity, updateActivity, updateActivityStatus, deleteActivity } from '@/api/activity'
+import {
+  listActivities,
+  createActivity,
+  updateActivity,
+  updateActivityStatus,
+  deleteActivity,
+  getActivity,
+} from '@/api/activity'
 import { listCategories } from '@/api/category'
-import type { ActivityVO, ActivitySaveRequest } from '@/types/activity'
+import type { ActivityVO, ActivitySaveRequest, MultiDrawTierItem } from '@/types/activity'
+import MultiDrawTierEditor from '@/components/MultiDrawTierEditor.vue'
+import {
+  activityVoToSaveRequest,
+  cloneTiersForSave,
+  defaultMultiDrawTiers,
+  formatTierSummary,
+} from '@/utils/activityMultiDraw'
 import type { CategoryVO } from '@/types/category'
 import { ActivityTypeCode } from '@/constants/domainCodes'
 import MediaUpload from '@/components/MediaUpload.vue'
@@ -175,6 +212,12 @@ import { moveFiles } from '@/api/oss'
 const router = useRouter()
 
 const ACT_TYPE_CARD = ActivityTypeCode.CARD
+
+const tierDialogVisible = ref(false)
+const tierDialogLoading = ref(false)
+const tierDialogSaveLoading = ref(false)
+const tierDialogVo = ref<ActivityVO | null>(null)
+const tierDialogTiers = ref<MultiDrawTierItem[]>([])
 
 const loading = ref(false)
 const list = ref<ActivityVO[]>([])
@@ -208,7 +251,7 @@ const form = reactive({
   scorePrice: 0,
   profitRate: 0,
   perUserLimit: 1,
-  multiBuyDiscount: 0,
+  multiDrawTiers: defaultMultiDrawTiers(),
   openBoxAnimation: '',
   tags: '',
   rank: 0 as 0 | 1,
@@ -245,7 +288,7 @@ function buildSavePayload(): ActivitySaveRequest {
     moneyPrice: form.moneyPrice,
     scorePrice: form.scorePrice,
     perUserLimit: form.perUserLimit,
-    multiBuyDiscount: form.multiBuyDiscount,
+    multiDrawTiers: cloneTiersForSave(form.multiDrawTiers),
     openBoxAnimation: form.openBoxAnimation || undefined,
     tags: form.tags || undefined,
     rank: form.rank,
@@ -272,7 +315,7 @@ function resetForm() {
     scorePrice: 0,
     profitRate: 0,
     perUserLimit: 1,
-    multiBuyDiscount: 0,
+    multiDrawTiers: defaultMultiDrawTiers(),
     openBoxAnimation: '',
     tags: '',
     rank: 0,
@@ -296,7 +339,10 @@ function rowToForm(row: ActivityVO) {
     scorePrice: row.scorePrice,
     profitRate: row.profitRate ?? 0,
     perUserLimit: row.perUserLimit,
-    multiBuyDiscount: row.multiBuyDiscount ?? 0,
+    multiDrawTiers:
+      row.multiDrawTiers?.length && row.multiDrawTiers.length > 0
+        ? JSON.parse(JSON.stringify(row.multiDrawTiers))
+        : defaultMultiDrawTiers(),
     openBoxAnimation: row.openBoxAnimation || '',
     tags: row.tags || '',
     rank: (row.rank === 1 ? 1 : 0) as 0 | 1,
@@ -344,6 +390,43 @@ async function loadCategories() {
 
 function goToPrizes(row: ActivityVO) {
   router.push({ path: `/gameplay/gacha/${row.id}/prizes` })
+}
+
+async function openTierDialog(row: ActivityVO) {
+  tierDialogVisible.value = true
+  tierDialogLoading.value = true
+  tierDialogVo.value = null
+  tierDialogTiers.value = []
+  try {
+    const { data } = await getActivity(row.id)
+    tierDialogVo.value = data
+    tierDialogTiers.value =
+      data.multiDrawTiers?.length && data.multiDrawTiers.length > 0
+        ? JSON.parse(JSON.stringify(data.multiDrawTiers))
+        : defaultMultiDrawTiers()
+  } catch {
+    ElMessage.error('加载活动详情失败')
+    tierDialogVisible.value = false
+  } finally {
+    tierDialogLoading.value = false
+  }
+}
+
+async function saveTierDialog() {
+  const vo = tierDialogVo.value
+  if (!vo) return
+  tierDialogSaveLoading.value = true
+  try {
+    await updateActivity(
+      vo.id,
+      activityVoToSaveRequest(vo, { multiDrawTiers: cloneTiersForSave(tierDialogTiers.value) }),
+    )
+    ElMessage.success('连抽档位已保存')
+    tierDialogVisible.value = false
+    fetchData()
+  } finally {
+    tierDialogSaveLoading.value = false
+  }
 }
 
 function handleAdd() {
@@ -435,5 +518,15 @@ onMounted(() => {
   margin-left: 8px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+.tier-list-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tier-list-cell__summary {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
 }
 </style>
