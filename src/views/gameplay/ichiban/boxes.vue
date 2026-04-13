@@ -48,9 +48,12 @@
         <template v-else>说明：一番赏、无限赏玩法下，档位百分比<strong>不参与</strong>开箱随机，仅用于展示与运营；开箱仍按各 SKU 开奖概率及箱内规则。</template>
       </p>
       <el-table :data="levelTableRows" stripe size="small" style="width: 100%">
-        <el-table-column label="标题" min-width="120">
+        <el-table-column label="标题" min-width="140">
           <template #default="{ row }">
-            <el-input v-model="row.title" placeholder="如 大赏" />
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+              <el-input v-model="row.title" placeholder="如 大赏" style="flex: 1; min-width: 100px" />
+              <el-tag v-if="row.levelRole === 'FINAL'" type="warning" size="small">最终赏</el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="图标" min-width="120">
@@ -74,8 +77,17 @@
           </template>
         </el-table-column>
         <el-table-column label="操作" width="72" fixed="right">
-          <template #default="{ $index }">
-            <el-button link type="danger" size="small" @click="removeLevelRow($index)">删除</el-button>
+          <template #default="{ row, $index }">
+            <el-button
+              v-if="row.levelRole !== 'FINAL'"
+              link
+              type="danger"
+              size="small"
+              @click="removeLevelRow($index)"
+            >
+              删除
+            </el-button>
+            <span v-else style="font-size: 12px; color: var(--el-text-color-secondary)">—</span>
           </template>
         </el-table-column>
       </el-table>
@@ -292,14 +304,11 @@
             </div>
           </div>
         </el-form-item>
-        <el-form-item label="成本价">
-          <el-input-number v-model="prizeForm.costPrice" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
         <el-form-item label="回收价">
-          <el-input-number v-model="prizeForm.recyclePrice" :min="0" :precision="2" style="width: 100%" />
+          <el-input-number v-model="prizeForm.recyclePrice" :min="0" :precision="2" disabled style="width: 100%" />
         </el-form-item>
         <el-form-item label="原价/划线价">
-          <el-input-number v-model="prizeForm.originalPrice" :min="0" :precision="2" style="width: 100%" />
+          <el-input-number v-model="prizeForm.originalPrice" :min="0" :precision="2" disabled style="width: 100%" />
         </el-form-item>
         <el-form-item label="开奖概率">
           <span class="box-prize-fixed">固定 100%（与特殊开奖概率均为 100%，由后端写入）</span>
@@ -540,7 +549,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
@@ -696,7 +705,15 @@ async function runSimulation() {
 const levelCfgLoading = ref(false)
 const levelSaveLoading = ref(false)
 const levelTableRows = ref<
-  { id?: string; title: string; icon?: string; openBoxAnimation?: string; sortOrder: number; tierWeight: number }[]
+  {
+    id?: string
+    title: string
+    icon?: string
+    openBoxAnimation?: string
+    sortOrder: number
+    tierWeight: number
+    levelRole?: string
+  }[]
 >([])
 
 const levelSumDisplay = computed(() =>
@@ -788,9 +805,8 @@ const prizeForm = reactive({
   name: '',
   rewardLevelId: '' as string,
   selectedProductIds: [] as string[],
-  costPrice: undefined as number | undefined,
-  recyclePrice: undefined as number | undefined,
-  originalPrice: undefined as number | undefined,
+  recyclePrice: 0,
+  originalPrice: 0,
   stockQuantity: 1,
   isUnlimitedStock: false,
   imageUrl: '',
@@ -835,9 +851,6 @@ function buildPrizePayload(): SkuSaveRequest {
     name: prizeForm.name,
     productIds: prizeForm.selectedProductIds.length > 0 ? JSON.stringify(prizeForm.selectedProductIds) : undefined,
     activityType: SkuMarketActivityType.LOTTERY,
-    costPrice: prizeForm.costPrice,
-    recyclePrice: prizeForm.recyclePrice,
-    originalPrice: prizeForm.originalPrice,
     rewardProbability: BOX_SKU_REWARD_PROBABILITY,
     specialRewardProbability: BOX_SKU_SPECIAL_REWARD_PROBABILITY,
     stockQuantity: prizeForm.stockQuantity,
@@ -863,9 +876,8 @@ function resetPrizeForm() {
     name: '',
     rewardLevelId: '',
     selectedProductIds: [],
-    costPrice: undefined,
-    recyclePrice: undefined,
-    originalPrice: undefined,
+    recyclePrice: 0,
+    originalPrice: 0,
     stockQuantity: 1,
     isUnlimitedStock: false,
     imageUrl: '',
@@ -893,9 +905,8 @@ async function rowToPrizeForm(row: SkuVO) {
     name: row.name,
     rewardLevelId: row.rewardLevelId || '',
     selectedProductIds: ids,
-    costPrice: row.costPrice ?? undefined,
-    recyclePrice: row.recyclePrice ?? undefined,
-    originalPrice: row.originalPrice ?? undefined,
+    recyclePrice: row.recyclePrice ?? 0,
+    originalPrice: row.originalPrice ?? 0,
     stockQuantity: row.stockQuantity ?? 1,
     isUnlimitedStock: false,
     imageUrl: row.imageUrl || '',
@@ -910,6 +921,25 @@ async function rowToPrizeForm(row: SkuVO) {
   })
 }
 
+function refreshPrizePricesFromSelectedProducts() {
+  let o = 0
+  let r = 0
+  for (const id of prizeForm.selectedProductIds) {
+    const p = allProductsMap.value.get(id)
+    if (p) {
+      o += Number(p.originalPrice ?? 0)
+      r += Number(p.recyclePrice ?? 0)
+    }
+  }
+  prizeForm.originalPrice = o
+  prizeForm.recyclePrice = r
+}
+
+watch(
+  () => [...prizeForm.selectedProductIds],
+  () => refreshPrizePricesFromSelectedProducts(),
+)
+
 async function fetchLevelConfig() {
   levelCfgLoading.value = true
   try {
@@ -922,6 +952,7 @@ async function fetchLevelConfig() {
       openBoxAnimation: d.openBoxAnimation ?? '',
       sortOrder: d.sortOrder,
       tierWeight: typeof d.tierWeight === 'number' ? d.tierWeight : Number(d.tierWeight),
+      levelRole: d.levelRole ?? 'NORMAL',
     }))
   } catch {
     rewardLevelOptions.value = []
@@ -938,6 +969,7 @@ function addLevelRow() {
     openBoxAnimation: '',
     sortOrder: levelTableRows.value.length + 1,
     tierWeight: 10,
+    levelRole: 'NORMAL',
   })
 }
 
@@ -959,6 +991,7 @@ async function saveLevelConfig() {
       openBoxAnimation: r.openBoxAnimation?.trim() || undefined,
       sortOrder: r.sortOrder,
       tierWeight: Number(r.tierWeight),
+      levelRole: r.levelRole ?? 'NORMAL',
     }))
     if (items.some(i => !i.title)) {
       ElMessage.error('请填写等级标题')
@@ -1179,6 +1212,7 @@ function confirmProductPicker() {
     allProductsMap.value.set(p.id, p)
   }
   prizeForm.selectedProductIds = newIds
+  refreshPrizePricesFromSelectedProducts()
   prizeFormRef.value?.validateField('selectedProductIds')
   productPickerVisible.value = false
 }

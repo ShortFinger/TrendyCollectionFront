@@ -115,8 +115,8 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="成本价" width="100">
-          <template #default="{ row }">{{ row.costPrice != null ? `¥${row.costPrice}` : '-' }}</template>
+        <el-table-column label="原价" width="100">
+          <template #default="{ row }">{{ row.originalPrice != null ? `¥${row.originalPrice}` : '-' }}</template>
         </el-table-column>
         <el-table-column label="回收价" width="100">
           <template #default="{ row }">{{ row.recyclePrice != null ? `¥${row.recyclePrice}` : '-' }}</template>
@@ -185,14 +185,11 @@
             </div>
           </div>
         </el-form-item>
-        <el-form-item label="成本价">
-          <el-input-number v-model="form.costPrice" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
         <el-form-item label="回收价">
-          <el-input-number v-model="form.recyclePrice" :min="0" :precision="2" style="width: 100%" />
+          <el-input-number v-model="form.recyclePrice" :min="0" :precision="2" disabled style="width: 100%" />
         </el-form-item>
         <el-form-item label="原价/划线价">
-          <el-input-number v-model="form.originalPrice" :min="0" :precision="2" style="width: 100%" />
+          <el-input-number v-model="form.originalPrice" :min="0" :precision="2" disabled style="width: 100%" />
         </el-form-item>
         <el-form-item label="开奖概率" prop="rewardProbability">
           <el-input-number v-model="form.rewardProbability" :min="0" :precision="2" style="width: 100%" />
@@ -373,7 +370,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, ElTable } from 'element-plus'
@@ -547,9 +544,8 @@ const form = reactive({
   skuCode: '',
   name: '',
   selectedProductIds: [] as string[],
-  costPrice: undefined as number | undefined,
-  recyclePrice: undefined as number | undefined,
-  originalPrice: undefined as number | undefined,
+  recyclePrice: 0,
+  originalPrice: 0,
   rewardProbability: 0,
   specialRewardProbability: 0,
   stockQuantity: 0,
@@ -589,9 +585,6 @@ function buildPayload(): SkuSaveRequest {
   return {
     name: form.name,
     productIds: form.selectedProductIds.length > 0 ? JSON.stringify(form.selectedProductIds) : undefined,
-    costPrice: form.costPrice,
-    recyclePrice: form.recyclePrice,
-    originalPrice: form.originalPrice,
     rewardProbability: form.rewardProbability,
     specialRewardProbability: form.specialRewardProbability,
     stockQuantity: form.stockQuantity,
@@ -615,9 +608,8 @@ function resetForm() {
     skuCode: '',
     name: '',
     selectedProductIds: [],
-    costPrice: undefined,
-    recyclePrice: undefined,
-    originalPrice: undefined,
+    recyclePrice: 0,
+    originalPrice: 0,
     rewardProbability: 0,
     specialRewardProbability: 0,
     stockQuantity: 0,
@@ -647,9 +639,8 @@ async function rowToForm(row: SkuVO) {
     skuCode: row.skuCode,
     name: row.name,
     selectedProductIds: ids,
-    costPrice: row.costPrice ?? undefined,
-    recyclePrice: row.recyclePrice ?? undefined,
-    originalPrice: row.originalPrice ?? undefined,
+    recyclePrice: row.recyclePrice ?? 0,
+    originalPrice: row.originalPrice ?? 0,
     rewardProbability: row.rewardProbability,
     specialRewardProbability: row.specialRewardProbability,
     stockQuantity: row.stockQuantity,
@@ -666,6 +657,25 @@ async function rowToForm(row: SkuVO) {
     rewardLevelId: row.rewardLevelId || '',
   })
 }
+
+function refreshPricesFromSelectedProducts() {
+  let o = 0
+  let r = 0
+  for (const id of form.selectedProductIds) {
+    const p = allProductsMap.value.get(id)
+    if (p) {
+      o += Number(p.originalPrice ?? 0)
+      r += Number(p.recyclePrice ?? 0)
+    }
+  }
+  form.originalPrice = o
+  form.recyclePrice = r
+}
+
+watch(
+  () => [...form.selectedProductIds],
+  () => refreshPricesFromSelectedProducts(),
+)
 
 function removeSelectedProduct(id: string) {
   form.selectedProductIds = form.selectedProductIds.filter(pid => pid !== id)
@@ -694,6 +704,7 @@ function confirmProductPicker() {
     allProductsMap.value.set(p.id, p)
   }
   form.selectedProductIds = newIds
+  refreshPricesFromSelectedProducts()
   formRef.value?.validateField('selectedProductIds')
   productPickerVisible.value = false
 }
@@ -742,14 +753,14 @@ async function recalcProfitRate() {
   try {
     const { data: allSkuPage } = await listSkus(activityId, { page: 1, size: 9999 } as any)
     const allSkus = allSkuPage.records
-    const expectedCost = allSkus.reduce((sum, sku) => {
-      const cost = sku.costPrice ?? 0
+    const expectedOriginal = allSkus.reduce((sum, sku) => {
+      const orig = sku.originalPrice ?? 0
       const prob = sku.rewardProbability ?? 0
-      return sum + cost * (prob / 100)
+      return sum + orig * (prob / 100)
     }, 0)
     const moneyPrice = activity.value.moneyPrice
     const profitRate = moneyPrice > 0
-      ? Math.round(((moneyPrice - expectedCost) / moneyPrice) * 10000) / 100
+      ? Math.round(((moneyPrice - expectedOriginal) / moneyPrice) * 10000) / 100
       : 0
     await updateActivity(activityId, {
       title: activity.value.title,

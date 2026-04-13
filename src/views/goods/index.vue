@@ -25,6 +25,12 @@
         <el-table-column prop="id" label="ID" min-width="120" />
         <el-table-column prop="productCode" label="商品编码" min-width="140" />
         <el-table-column prop="name" label="商品名称" min-width="220" />
+        <el-table-column label="原价" width="100">
+          <template #default="{ row }">{{ row.originalPrice != null ? `¥${row.originalPrice}` : '-' }}</template>
+        </el-table-column>
+        <el-table-column label="回收价" width="100">
+          <template #default="{ row }">{{ row.recyclePrice != null ? `¥${row.recyclePrice}` : '-' }}</template>
+        </el-table-column>
         <el-table-column label="主图" width="80">
           <template #default="{ row }">
             <el-image
@@ -76,6 +82,13 @@
         </el-form-item>
         <el-form-item label="商品描述" prop="description">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入商品描述" />
+        </el-form-item>
+        <el-divider content-position="left">价格</el-divider>
+        <el-form-item label="原价" prop="originalPrice">
+          <el-input-number v-model="form.originalPrice" :min="0" :precision="2" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="回收价" prop="recyclePrice">
+          <el-input-number v-model="form.recyclePrice" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-divider content-position="left">图片信息</el-divider>
         <el-form-item label="主图" prop="mainImageUrl">
@@ -175,6 +188,8 @@ const defaultForm = (): ProductSaveRequest => ({
   leftImage: '',
   rightImage: '',
   status: ProductListingStatus.ON_SHELF,
+  originalPrice: 0,
+  recyclePrice: 0,
 })
 
 const form = reactive<ProductSaveRequest>(defaultForm())
@@ -189,6 +204,8 @@ function uploadDir(field: string) {
 const rules: FormRules = {
   productCode: [{ required: true, message: '请输入商品编码', trigger: 'blur' }],
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
+  originalPrice: [{ required: true, message: '请输入原价', trigger: 'blur' }],
+  recyclePrice: [{ required: true, message: '请输入回收价', trigger: 'blur' }],
 }
 
 async function fetchData() {
@@ -246,6 +263,8 @@ function handleEdit(row: ProductVO) {
     leftImage: row.leftImage || '',
     rightImage: row.rightImage || '',
     status: row.status,
+    originalPrice: row.originalPrice ?? 0,
+    recyclePrice: row.recyclePrice ?? 0,
   })
   dialogVisible.value = true
 }

@@ -19,6 +19,8 @@ export interface ProductVO {
   leftImage?: string
   rightImage?: string
   status: string
+  originalPrice: number
+  recyclePrice: number
   createTime: string
   updateTime: string
 }
@@ -38,4 +40,6 @@ export interface ProductSaveRequest {
   leftImage?: string
   rightImage?: string
   status?: string
+  originalPrice: number
+  recyclePrice: number
 }
