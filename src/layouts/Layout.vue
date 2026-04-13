@@ -92,15 +92,14 @@
       </el-header>
       <el-main class="layout-main">
         <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <keep-alive :max="MAX_TABS" :include="tabsStore.includeNames">
-              <component
-                v-if="Component"
-                :is="wrappedComponent(Component)"
-                :key="`${route.fullPath}:${tabRemountSeq[route.fullPath] ?? 0}`"
-              />
-            </keep-alive>
-          </transition>
+          <!-- No <transition> wrapping KeepAlive: out-in + cached views can patch detached nodes (Uncaught parentNode null) when switching header tabs. -->
+          <keep-alive :max="MAX_TABS" :include="tabsStore.includeNames">
+            <component
+              v-if="Component"
+              :is="wrappedComponent(Component)"
+              :key="`${route.fullPath}:${tabRemountSeq[route.fullPath] ?? 0}`"
+            />
+          </keep-alive>
         </router-view>
       </el-main>
     </el-container>
@@ -441,12 +440,4 @@ function refreshCurrentPage() {
   line-height: 1.55;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
 </style>

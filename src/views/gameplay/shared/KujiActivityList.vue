@@ -129,8 +129,8 @@
         <el-form-item label="最大箱子数" prop="boxCount">
           <el-input-number v-model="form.boxCount" :min="1" style="width: 100%" />
         </el-form-item>
-        <el-form-item v-if="props.activityType === 'ICHIBAN'" label="最终赏 SKU ID">
-          <el-input v-model="form.finalPrizeSkuId" placeholder="留空表示不开启；须为活动内已创建 SKU" clearable />
+        <el-form-item v-if="props.activityType === 'ICHIBAN'" label="最终赏 SKU ID" prop="finalPrizeSkuId">
+          <el-input v-model="form.finalPrizeSkuId" placeholder="一番赏必填；须为活动内已创建 SKU" clearable />
         </el-form-item>
         <el-form-item label="人民币价格" prop="moneyPrice">
           <el-input-number v-model="form.moneyPrice" :min="0" :precision="2" style="width: 100%" />
@@ -279,13 +279,28 @@ const form = reactive({
   isRandomRewardEnabled: 0 as 0 | 1,
 })
 
-const formRules = computed<FormRules>(() => ({
-  title: [{ required: true, message: props.labels.formTitleRuleMessage, trigger: 'blur' }],
-  boxCount: [{ required: true, message: '请输入最大箱子数', trigger: 'blur' }],
-  moneyPrice: [{ required: true, message: '请输入价格', trigger: 'blur' }],
-  scorePrice: [{ required: true, message: '请输入积分价格', trigger: 'blur' }],
-  perUserLimit: [{ required: true, message: '请输入限次', trigger: 'blur' }],
-}))
+const formRules = computed<FormRules>(() => {
+  const base: FormRules = {
+    title: [{ required: true, message: props.labels.formTitleRuleMessage, trigger: 'blur' }],
+    boxCount: [{ required: true, message: '请输入最大箱子数', trigger: 'blur' }],
+    moneyPrice: [{ required: true, message: '请输入价格', trigger: 'blur' }],
+    scorePrice: [{ required: true, message: '请输入积分价格', trigger: 'blur' }],
+    perUserLimit: [{ required: true, message: '请输入限次', trigger: 'blur' }],
+  }
+  if (props.activityType === 'ICHIBAN') {
+    base.finalPrizeSkuId = [
+      {
+        required: true,
+        validator: (_rule, value: string, callback) => {
+          if (!value || String(value).trim() === '') callback(new Error('一番赏须填写最终赏 SKU ID'))
+          else callback()
+        },
+        trigger: 'blur',
+      },
+    ]
+  }
+  return base
+})
 
 function uploadDir(field: string) {
   const dirPrefix = props.activityType.toLowerCase()
@@ -301,7 +316,11 @@ function buildSavePayload(): ActivitySaveRequest {
     activityType: props.activityType,
     boxCount: form.boxCount,
     finalPrizeSkuId:
-      props.activityType === 'ICHIBAN' && form.finalPrizeSkuId.trim() !== '' ? form.finalPrizeSkuId.trim() : undefined,
+      props.activityType === 'ICHIBAN'
+        ? form.finalPrizeSkuId.trim()
+        : form.finalPrizeSkuId.trim() !== ''
+          ? form.finalPrizeSkuId.trim()
+          : undefined,
     squareThumb: form.squareThumb || undefined,
     longThumb: form.longThumb || undefined,
     lowerLeftCornerMark: form.lowerLeftCornerMark || undefined,
