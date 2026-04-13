@@ -135,6 +135,21 @@ const routes: RouteRecordRaw[] = [
         ],
       },
       {
+        path: 'welfare',
+        name: 'Welfare',
+        component: ParentView,
+        redirect: '/welfare/overview',
+        meta: { title: '福利管理', icon: 'Gift' },
+        children: [
+          {
+            path: 'overview',
+            name: 'WelfareOverview',
+            component: () => import('@/views/welfare/overview/index.vue'),
+            meta: { title: '概览' },
+          },
+        ],
+      },
+      {
         path: 'rankings',
         name: 'Rankings',
         component: ParentView,
