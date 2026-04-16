@@ -21,6 +21,13 @@ export const MithrilBizTypeCode = {
   PRIZE_SMELT: 'PRIZE_SMELT',
 } as const
 
+export const ScoreBizTypeCode = {
+  ORDER_PAY_DEDUCT: 'ORDER_PAY_DEDUCT',
+  REFUND_CREDIT: 'REFUND_CREDIT',
+  ADMIN_GRANT: 'ADMIN_GRANT',
+  ADMIN_DEDUCT: 'ADMIN_DEDUCT',
+} as const
+
 export const BoxStatusCode = {
   PENDING: 'PENDING',
   IN_PROGRESS: 'IN_PROGRESS',
@@ -127,6 +134,13 @@ export const MITHRIL_BIZ_TYPE_LABELS: Record<string, string> = {
   [MithrilBizTypeCode.PRIZE_SMELT]: '奖品熔炼',
 }
 
+export const SCORE_BIZ_TYPE_LABELS: Record<string, string> = {
+  [ScoreBizTypeCode.ORDER_PAY_DEDUCT]: '订单支付扣减',
+  [ScoreBizTypeCode.REFUND_CREDIT]: '退款返还',
+  [ScoreBizTypeCode.ADMIN_GRANT]: '后台发放',
+  [ScoreBizTypeCode.ADMIN_DEDUCT]: '后台扣减',
+}
+
 const MANUAL_DELIVER = new Set<string>([
   DeliverStatusCode.PENDING_SHIPMENT,
   DeliverStatusCode.STOCKING,
@@ -207,6 +221,12 @@ export function mithrilBizTypeLabel(t: string | number | undefined | null): stri
   if (t === undefined || t === null) return '-'
   const key = String(t)
   return MITHRIL_BIZ_TYPE_LABELS[key] ?? key
+}
+
+export function scoreBizTypeLabel(t: string | number | undefined | null): string {
+  if (t === undefined || t === null) return '-'
+  const key = String(t)
+  return SCORE_BIZ_TYPE_LABELS[key] ?? key
 }
 
 export function productListingStatusText(s: string | undefined | null): string {
