@@ -82,9 +82,6 @@
         <el-form-item label="累计支付金额">
           <el-input-number v-model="editForm.paidMoneyTotal" :min="0" controls-position="right" />
         </el-form-item>
-        <el-form-item label="累计支付积分">
-          <el-input-number v-model="editForm.paidScoreTotal" :min="0" controls-position="right" />
-        </el-form-item>
         <el-form-item label="积分余额">
           <el-input-number v-model="editForm.scoreBalance" :min="0" controls-position="right" />
         </el-form-item>
@@ -161,7 +158,6 @@ const editForm = reactive({
   status: 1,
   tags: '',
   paidMoneyTotal: 0,
-  paidScoreTotal: 0,
   scoreBalance: 0,
   scoreTotalEarned: 0,
   scoreTotalDeducted: 0,
@@ -226,7 +222,6 @@ function openCreate() {
     status: 1,
     tags: '',
     paidMoneyTotal: 0,
-    paidScoreTotal: 0,
     scoreBalance: 0,
     scoreTotalEarned: 0,
     scoreTotalDeducted: 0,
@@ -246,7 +241,6 @@ function openEdit(row: VirtualUserVO) {
     status: row.status,
     tags: row.tags ?? '',
     paidMoneyTotal: row.paidMoneyTotal ?? 0,
-    paidScoreTotal: row.paidScoreTotal ?? 0,
     scoreBalance: row.scoreBalance ?? 0,
     scoreTotalEarned: row.scoreTotalEarned ?? 0,
     scoreTotalDeducted: row.scoreTotalDeducted ?? 0,

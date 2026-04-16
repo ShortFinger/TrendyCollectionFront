@@ -9,7 +9,6 @@ export interface VirtualUserVO {
   status: number
   profileSource?: string | null
   paidMoneyTotal: number
-  paidScoreTotal: number
   scoreBalance: number
   scoreTotalEarned: number
   scoreTotalDeducted: number
@@ -36,7 +35,6 @@ export interface VirtualUserCreateBody {
   status?: number
   profileSource?: string
   paidMoneyTotal?: number
-  paidScoreTotal?: number
   scoreBalance?: number
   scoreTotalEarned?: number
   scoreTotalDeducted?: number
@@ -54,7 +52,6 @@ export interface VirtualUserBatchGenerateBody {
   status?: number
   avatar?: string
   paidMoneyTotal?: number
-  paidScoreTotal?: number
   scoreBalance?: number
   scoreTotalEarned?: number
   scoreTotalDeducted?: number
