@@ -34,9 +34,11 @@
         <el-table-column prop="phone" label="手机号" width="130" />
         <el-table-column prop="balance" label="余额" width="100" />
         <el-table-column prop="createTime" label="注册时间" width="180" />
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default>
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleDetailPlaceholder">详情</el-button>
+            <el-button link type="primary" size="small" @click="goScoreLedgers(row)">积分</el-button>
+            <el-button link type="primary" size="small" @click="goMithrilLedgers(row)">秘银</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -55,10 +57,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { listEndUsers } from '@/api/end-user'
 import type { EndUserVO } from '@/types/end-user'
 
+const router = useRouter()
 const loading = ref(false)
 const list = ref<EndUserVO[]>([])
 const total = ref(0)
@@ -112,6 +116,14 @@ function handleReset() {
 
 function handleDetailPlaceholder() {
   ElMessage.info('详情功能待开发')
+}
+
+function goScoreLedgers(row: EndUserVO) {
+  router.push({ path: '/users/score-ledgers', query: { userId: row.id } })
+}
+
+function goMithrilLedgers(row: EndUserVO) {
+  router.push({ path: '/users/mithril-ledgers', query: { userId: row.id } })
 }
 
 onMounted(fetchData)

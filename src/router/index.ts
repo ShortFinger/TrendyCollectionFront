@@ -132,6 +132,18 @@ const routes: RouteRecordRaw[] = [
             component: () => import('@/views/users/list/index.vue'),
             meta: { title: '用户列表' },
           },
+          {
+            path: 'score-ledgers',
+            name: 'UserScoreLedgers',
+            component: () => import('@/views/users/score-ledgers/index.vue'),
+            meta: { title: '积分记录' },
+          },
+          {
+            path: 'mithril-ledgers',
+            name: 'UserMithrilLedgers',
+            component: () => import('@/views/users/mithril-ledgers/index.vue'),
+            meta: { title: '秘银记录' },
+          },
         ],
       },
       {
