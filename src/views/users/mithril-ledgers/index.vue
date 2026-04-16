@@ -10,9 +10,12 @@
         </el-form-item>
         <el-form-item label="业务类型">
           <el-select v-model="query.bizType" placeholder="全部" clearable style="width: 180px">
-            <el-option label="PAY" value="PAY" />
-            <el-option label="REFUND" value="REFUND" />
-            <el-option label="PRIZE_SMELT" value="PRIZE_SMELT" />
+            <el-option
+              v-for="code in mithrilBizTypeFilterCodes"
+              :key="code"
+              :label="MITHRIL_BIZ_TYPE_LABELS[code]"
+              :value="code"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="关键词">
@@ -38,7 +41,11 @@
       <el-table :data="list" stripe v-loading="loading" style="width: 100%">
         <el-table-column prop="createTime" label="时间" width="170" />
         <el-table-column prop="userId" label="用户ID" width="200" show-overflow-tooltip />
-        <el-table-column prop="bizType" label="类型" width="140" />
+        <el-table-column prop="bizType" label="类型" width="140">
+          <template #default="{ row }">
+            {{ mithrilBizTypeLabel(row.bizType) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="changeAmount" label="变动" width="90" />
         <el-table-column prop="beforeBalance" label="变更前" width="90" />
         <el-table-column prop="afterBalance" label="变更后" width="90" />
@@ -64,6 +71,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { listMithrilLedgers } from '@/api/user-ledger'
 import type { LedgerEntryVO } from '@/types/user-ledger'
+import { MithrilBizTypeCode, MITHRIL_BIZ_TYPE_LABELS, mithrilBizTypeLabel } from '@/constants/domainCodes'
+
+const mithrilBizTypeFilterCodes = [
+  MithrilBizTypeCode.PAY,
+  MithrilBizTypeCode.REFUND,
+  MithrilBizTypeCode.PRIZE_SMELT,
+] as const
 
 const route = useRoute()
 const loading = ref(false)

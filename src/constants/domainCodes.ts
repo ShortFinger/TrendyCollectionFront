@@ -15,6 +15,12 @@ export const ActivityTypeCode = {
   UNLIMITED: 'UNLIMITED',
 } as const
 
+export const MithrilBizTypeCode = {
+  PAY: 'PAY',
+  REFUND: 'REFUND',
+  PRIZE_SMELT: 'PRIZE_SMELT',
+} as const
+
 export const BoxStatusCode = {
   PENDING: 'PENDING',
   IN_PROGRESS: 'IN_PROGRESS',
@@ -115,6 +121,12 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   [ActivityTypeCode.UNLIMITED]: '无限赏',
 }
 
+export const MITHRIL_BIZ_TYPE_LABELS: Record<string, string> = {
+  [MithrilBizTypeCode.PAY]: '支付入账',
+  [MithrilBizTypeCode.REFUND]: '退款扣减',
+  [MithrilBizTypeCode.PRIZE_SMELT]: '奖品熔炼',
+}
+
 const MANUAL_DELIVER = new Set<string>([
   DeliverStatusCode.PENDING_SHIPMENT,
   DeliverStatusCode.STOCKING,
@@ -189,6 +201,12 @@ export function activityTypeLabel(t: string | number | undefined | null): string
   if (t === undefined || t === null) return '-'
   const key = String(t)
   return ACTIVITY_TYPE_LABELS[key] ?? key
+}
+
+export function mithrilBizTypeLabel(t: string | number | undefined | null): string {
+  if (t === undefined || t === null) return '-'
+  const key = String(t)
+  return MITHRIL_BIZ_TYPE_LABELS[key] ?? key
 }
 
 export function productListingStatusText(s: string | undefined | null): string {
