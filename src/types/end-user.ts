@@ -4,8 +4,12 @@ export interface EndUserVO {
   id: string
   nickname?: string
   phone?: string
-  balance: number
+  paidMoneyTotal?: number
+  scoreBalance?: number
+  mithrilBalance?: number
+  luckyScore?: number
   createTime?: string
+  lastActiveTime?: string
 }
 
 export interface EndUserQueryRequest extends PageQuery {
@@ -13,4 +17,8 @@ export interface EndUserQueryRequest extends PageQuery {
   userId?: string
   registerStartTime?: string
   registerEndTime?: string
+  lastActiveStartTime?: string
+  lastActiveEndTime?: string
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
 }
