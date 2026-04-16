@@ -144,6 +144,24 @@ const routes: RouteRecordRaw[] = [
             component: () => import('@/views/users/mithril-ledgers/index.vue'),
             meta: { title: '秘银记录' },
           },
+          {
+            path: 'virtual-users',
+            name: 'VirtualUsers',
+            component: () => import('@/views/users/virtual-users/index.vue'),
+            meta: { title: '虚拟用户' },
+          },
+          {
+            path: 'virtual-user-rules',
+            name: 'VirtualUserRules',
+            component: () => import('@/views/users/virtual-user-rules/index.vue'),
+            meta: { title: '虚拟投放规则' },
+          },
+          {
+            path: 'virtual-user-logs',
+            name: 'VirtualUserLogs',
+            component: () => import('@/views/users/virtual-user-logs/index.vue'),
+            meta: { title: '虚拟陪跑日志' },
+          },
         ],
       },
       {
