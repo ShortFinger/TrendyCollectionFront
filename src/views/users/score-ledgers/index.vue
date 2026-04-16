@@ -10,10 +10,12 @@
         </el-form-item>
         <el-form-item label="业务类型">
           <el-select v-model="query.bizType" placeholder="全部" clearable style="width: 180px">
-            <el-option label="ORDER_PAY_DEDUCT" value="ORDER_PAY_DEDUCT" />
-            <el-option label="REFUND_CREDIT" value="REFUND_CREDIT" />
-            <el-option label="ADMIN_GRANT" value="ADMIN_GRANT" />
-            <el-option label="ADMIN_DEDUCT" value="ADMIN_DEDUCT" />
+            <el-option
+              v-for="code in scoreBizTypeFilterCodes"
+              :key="code"
+              :label="SCORE_BIZ_TYPE_LABELS[code]"
+              :value="code"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="关键词">
@@ -39,7 +41,11 @@
       <el-table :data="list" stripe v-loading="loading" style="width: 100%">
         <el-table-column prop="createTime" label="时间" width="170" />
         <el-table-column prop="userId" label="用户ID" width="200" show-overflow-tooltip />
-        <el-table-column prop="bizType" label="类型" width="140" />
+        <el-table-column prop="bizType" label="类型" width="140">
+          <template #default="{ row }">
+            {{ scoreBizTypeLabel(row.bizType) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="changeAmount" label="变动" width="90" />
         <el-table-column prop="beforeBalance" label="变更前" width="90" />
         <el-table-column prop="afterBalance" label="变更后" width="90" />
@@ -65,6 +71,18 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { listScoreLedgers } from '@/api/user-ledger'
 import type { LedgerEntryVO } from '@/types/user-ledger'
+import {
+  ScoreBizTypeCode,
+  SCORE_BIZ_TYPE_LABELS,
+  scoreBizTypeLabel,
+} from '@/constants/domainCodes'
+
+const scoreBizTypeFilterCodes = [
+  ScoreBizTypeCode.ORDER_PAY_DEDUCT,
+  ScoreBizTypeCode.REFUND_CREDIT,
+  ScoreBizTypeCode.ADMIN_GRANT,
+  ScoreBizTypeCode.ADMIN_DEDUCT,
+] as const
 
 const route = useRoute()
 const loading = ref(false)
