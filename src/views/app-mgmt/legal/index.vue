@@ -5,16 +5,20 @@
       <el-button @click="load">刷新</el-button>
     </div>
     <el-table v-loading="loading" :data="rows" border stripe style="width: 100%">
-      <el-table-column prop="docType" label="类型" width="140" />
+      <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
+      <el-table-column label="类型" width="200">
+        <template #default="{ row }">
+          <span>{{ docTypeLabel(row.docType) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="version" label="版本" width="80" />
-      <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <span>{{ row.status === 1 ? '已发布' : '草稿' }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="effectiveTime" label="生效时间" width="170" />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="row.status === 0"
@@ -34,6 +38,15 @@
           >
             发布
           </el-button>
+          <el-button
+            v-if="row.status === 0"
+            link
+            type="danger"
+            size="small"
+            @click="onDelete(row)"
+          >
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -44,6 +57,8 @@
           <el-select v-model="createForm.docType" placeholder="选择协议类型" style="width: 100%">
             <el-option label="用户协议 USER_TERMS" value="USER_TERMS" />
             <el-option label="隐私政策 PRIVACY_POLICY" value="PRIVACY_POLICY" />
+            <el-option label="个人信息收集清单 PERSONAL_INFO_COLLECTION" value="PERSONAL_INFO_COLLECTION" />
+            <el-option label="未成年人隐私协议 MINORS_PRIVACY_POLICY" value="MINORS_PRIVACY_POLICY" />
           </el-select>
         </el-form-item>
         <el-form-item label="标题" required>
@@ -81,11 +96,23 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createLegalDraft,
+  deleteLegalDraft,
   listLegalDocuments,
   publishLegalDocument,
   updateLegalDraft,
   type LegalDocumentRow,
 } from '@/api/legalAdmin'
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  USER_TERMS: '用户协议',
+  PRIVACY_POLICY: '隐私政策',
+  PERSONAL_INFO_COLLECTION: '个人信息收集清单',
+  MINORS_PRIVACY_POLICY: '未成年人隐私协议',
+}
+
+function docTypeLabel(code: string) {
+  return DOC_TYPE_LABELS[code] ?? code
+}
 
 const loading = ref(false)
 const saving = ref(false)
@@ -198,6 +225,29 @@ async function onPublish(row: LegalDocumentRow) {
   }
 }
 
+async function onDelete(row: LegalDocumentRow) {
+  if (row.status !== 0) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除草稿「${row.title}」v${row.version}？此操作不可恢复。`, '删除草稿', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  saving.value = true
+  try {
+    await deleteLegalDraft(row.id)
+    ElMessage.success('已删除')
+    await load()
+  } catch {
+    /* 失败由拦截器提示 */
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(() => {
   load()
 })
@@ -210,6 +260,7 @@ onMounted(() => {
 .toolbar {
   margin-bottom: 12px;
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
 }
 </style>
