@@ -229,6 +229,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'APP管理', icon: 'Iphone' },
         children: [
           {
+            path: 'legal',
+            name: 'AppMgmtLegal',
+            component: () => import('@/views/app-mgmt/legal/index.vue'),
+            meta: { title: '协议管理' },
+          },
+          {
             path: 'page-create',
             name: 'AppPageCreate',
             component: () => import('@/views/app-page-create/index.vue'),
