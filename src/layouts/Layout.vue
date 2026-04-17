@@ -4,7 +4,16 @@
       <div class="logo">
         <span>TrendyCollection</span>
       </div>
+      <div class="menu-search">
+        <el-input
+          v-model="menuKeyword"
+          size="small"
+          placeholder="搜索菜单"
+          clearable
+        />
+      </div>
       <el-menu
+        v-if="hasMenuResults"
         :default-active="activeMenu"
         :default-openeds="openedMenus"
         class="layout-menu"
@@ -13,16 +22,20 @@
         active-text-color="#409eff"
         router
       >
-        <template v-for="item in menuRoutes" :key="item.path">
+        <template v-for="item in filteredMenuRoutes" :key="item.path">
           <el-sub-menu v-if="item.path === 'app-mgmt'" :index="'/' + item.path">
             <template #title>
               <el-icon><component :is="item.meta?.icon" /></el-icon>
               <span>{{ item.meta?.title }}</span>
             </template>
-            <el-menu-item index="/app-mgmt/page-create"><span>新增页面</span></el-menu-item>
-            <el-menu-item index="/app-mgmt/global"><span>通用配置</span></el-menu-item>
-            <el-menu-item index="/app-mgmt/legal"><span>协议管理</span></el-menu-item>
-            <el-menu-item v-for="p in appPages" :key="p.pageKey" :index="'/app-mgmt/page/' + p.pageKey">
+            <el-menu-item
+              v-for="entry in filteredAppMgmtFixedEntries"
+              :key="entry.key"
+              :index="'/app-mgmt/' + entry.key"
+            >
+              <span>{{ entry.title }}</span>
+            </el-menu-item>
+            <el-menu-item v-for="p in filteredAppPages" :key="p.pageKey" :index="'/app-mgmt/page/' + p.pageKey">
               <span>{{ p.title?.trim() ? p.title : p.pageKey }}</span>
             </el-menu-item>
           </el-sub-menu>
@@ -45,6 +58,10 @@
           </el-menu-item>
         </template>
       </el-menu>
+      <div v-else class="menu-empty">
+        <p class="menu-empty-desc">无匹配菜单</p>
+        <el-button type="primary" link @click="clearMenuKeyword">清空搜索</el-button>
+      </div>
       <p v-if="appPagesError" class="menu-pages-error">{{ appPagesError }}</p>
     </el-aside>
     <el-container direction="vertical">
@@ -147,6 +164,23 @@ const { pages: appPages, loadError: appPagesError, fetchAppPages } = useAppPageL
 
 /** Per-tab remount counter so「刷新」can force a new instance without yanking KeepAlive `include` while still on the route (avoids DOM patch errors). */
 const tabRemountSeq = reactive<Record<string, number>>({})
+const menuKeyword = ref('')
+const normalizedKeyword = computed(() => menuKeyword.value.trim().toLowerCase())
+const appMgmtFixedEntries = [
+  { key: 'page-create', title: '新增页面' },
+  { key: 'global', title: '通用配置' },
+  { key: 'legal', title: '协议管理' },
+]
+
+function normalizeLabel(value: unknown): string {
+  if (value == null) return ''
+  return String(value).trim().toLowerCase()
+}
+
+function matchesMenuTitle(title: unknown): boolean {
+  if (!normalizedKeyword.value) return true
+  return normalizeLabel(title).includes(normalizedKeyword.value)
+}
 
 onMounted(() => {
   if (localStorage.getItem('token')) {
@@ -164,15 +198,118 @@ const menuRoutes = computed(() => {
   return root?.children?.filter((r) => r.meta?.title && !r.meta?.hidden) ?? []
 })
 
+const appMgmtParentMatched = computed(() => {
+  if (!normalizedKeyword.value) return false
+  const appMgmtRoute = menuRoutes.value.find((routeNode) => routeNode.path === 'app-mgmt')
+  if (!appMgmtRoute) return false
+  const appMgmtTitle = appMgmtRoute.meta?.title ?? appMgmtRoute.path
+  return matchesMenuTitle(appMgmtTitle)
+})
+
+const filteredAppPages = computed(() => {
+  if (appMgmtParentMatched.value) {
+    return appPages.value
+  }
+  return appPages.value.filter((page) => {
+    const pageTitle = page.title?.trim() ? page.title : page.pageKey
+    return matchesMenuTitle(pageTitle)
+  })
+})
+
+const filteredAppMgmtFixedEntries = computed(() => {
+  if (appMgmtParentMatched.value) {
+    return appMgmtFixedEntries
+  }
+  return appMgmtFixedEntries.filter((entry) => matchesMenuTitle(entry.title))
+})
+
+function buildVisibleRouteNode(routeNode: RouteRecordRaw): RouteRecordRaw | null {
+  if (routeNode.meta?.hidden) return null
+  const visibleChildren = (routeNode.children ?? [])
+    .map(buildVisibleRouteNode)
+    .filter((child): child is RouteRecordRaw => child !== null)
+  return { ...routeNode, children: visibleChildren }
+}
+
+function filterRouteNode(routeNode: RouteRecordRaw): RouteRecordRaw | null {
+  const visibleNode = buildVisibleRouteNode(routeNode)
+  if (!visibleNode) return null
+
+  const filteredChildren = (visibleNode.children ?? [])
+    .map(filterRouteNode)
+    .filter((child): child is RouteRecordRaw => child !== null)
+  const selfTitle = visibleNode.meta?.title ?? visibleNode.path
+  const selfMatched = matchesMenuTitle(selfTitle)
+
+  if (visibleNode.path === 'app-mgmt') {
+    const hasFixedMatch = filteredAppMgmtFixedEntries.value.length > 0
+    const hasDynamicMatch = filteredAppPages.value.length > 0
+    if (!selfMatched && !hasFixedMatch && !hasDynamicMatch && filteredChildren.length === 0) {
+      return null
+    }
+    return { ...visibleNode, children: filteredChildren }
+  }
+
+  if (selfMatched && visibleNode.children?.length) {
+    return visibleNode
+  }
+
+  if (!selfMatched && filteredChildren.length === 0) {
+    return null
+  }
+
+  return { ...visibleNode, children: filteredChildren }
+}
+
+const filteredMenuRoutes = computed(() => {
+  return menuRoutes.value
+    .map(filterRouteNode)
+    .filter((routeNode): routeNode is RouteRecordRaw => routeNode !== null)
+})
+const hasMenuResults = computed(() => {
+  if (!normalizedKeyword.value) return true
+  return filteredMenuRoutes.value.some((item) => {
+    if (item.path === 'app-mgmt') {
+      return (
+        filteredAppMgmtFixedEntries.value.length > 0 ||
+        filteredAppPages.value.length > 0 ||
+        visibleChildren(item).length > 0
+      )
+    }
+    // Non app-mgmt routes in filteredMenuRoutes are rendered either as leaf menu items or sub-menus.
+    return true
+  })
+})
+
 const visibleChildren = (item: RouteRecordRaw) =>
   item.children?.filter((c) => !c.meta?.hidden) ?? []
 
 const activeMenu = computed(() => route.path)
 
 const openedMenus = computed(() => {
+  if (normalizedKeyword.value) {
+    const openFromSearch = filteredMenuRoutes.value
+      .filter((item) => {
+        if (item.path === 'app-mgmt') {
+          return (
+            filteredAppMgmtFixedEntries.value.length > 0 ||
+            filteredAppPages.value.length > 0 ||
+            visibleChildren(item).length > 0
+          )
+        }
+        return visibleChildren(item).length > 0
+      })
+      .map((item) => `/${item.path}`)
+    return Array.from(new Set(openFromSearch))
+  }
+
   const matched = route.matched
   return matched.filter((r) => r.children?.length).map((r) => r.path)
 })
+
+function clearMenuKeyword() {
+  menuKeyword.value = ''
+}
 
 const parentTitle = computed(() => {
   const matched = route.matched
@@ -279,6 +416,23 @@ function refreshCurrentPage() {
   border-bottom: 1px solid #2d3038;
 }
 
+.menu-search {
+  padding: 10px 12px 8px;
+}
+
+.menu-search :deep(.el-input__wrapper) {
+  background-color: #262a33;
+  box-shadow: 0 0 0 1px #3a3f4a inset;
+}
+
+.menu-search :deep(.el-input__inner) {
+  color: #dcdfe6;
+}
+
+.menu-search :deep(.el-input__inner::placeholder) {
+  color: #8d93a3;
+}
+
 .menu-pages-error {
   margin: 8px 12px 0;
   font-size: 12px;
@@ -288,6 +442,20 @@ function refreshCurrentPage() {
 
 .layout-menu {
   border-right: none;
+}
+
+.menu-empty {
+  margin: 8px 12px 0;
+  padding: 12px 8px;
+  border-radius: 6px;
+  background: #232732;
+  text-align: center;
+}
+
+.menu-empty-desc {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #c0c4cc;
 }
 
 .layout-menu :deep(.el-menu-item) {
