@@ -21,6 +21,7 @@
             </template>
             <el-menu-item index="/app-mgmt/page-create"><span>新增页面</span></el-menu-item>
             <el-menu-item index="/app-mgmt/global"><span>通用配置</span></el-menu-item>
+            <el-menu-item index="/app-mgmt/legal"><span>协议管理</span></el-menu-item>
             <el-menu-item v-for="p in appPages" :key="p.pageKey" :index="'/app-mgmt/page/' + p.pageKey">
               <span>{{ p.title?.trim() ? p.title : p.pageKey }}</span>
             </el-menu-item>
