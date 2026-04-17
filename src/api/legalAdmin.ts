@@ -1,7 +1,8 @@
 import request from '@/utils/request'
 import type { Result } from '@/types/api'
 
-const BASE = '/admin-api/legal-admin'
+/** 经 TrendyCollectionAdmin → TrendyCollectionAppConfig（与 app-cms 同源转发） */
+const BASE = '/admin-api/app-cms/legal-admin'
 
 export interface LegalDocumentRow {
   id: string
@@ -23,10 +24,15 @@ export function createLegalDraft(data: { docType: string; title: string; body: s
   return request.post<any, Result<LegalDocumentRow>>(`${BASE}/documents`, data)
 }
 
-export function updateLegalDraft(id: string, data: { title: string; body: string }) {
+/** 草稿与已发布均可更新标题、正文 */
+export function updateLegalDocument(id: string, data: { title: string; body: string }) {
   return request.put<any, Result<void>>(`${BASE}/documents/${encodeURIComponent(id)}`, data)
 }
 
 export function publishLegalDocument(id: string) {
   return request.post<any, Result<void>>(`${BASE}/documents/${encodeURIComponent(id)}/publish`, {})
+}
+
+export function deleteLegalDraft(id: string) {
+  return request.delete<any, Result<void>>(`${BASE}/documents/${encodeURIComponent(id)}`)
 }

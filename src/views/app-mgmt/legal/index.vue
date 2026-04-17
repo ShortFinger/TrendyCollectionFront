@@ -18,10 +18,10 @@
         </template>
       </el-table-column>
       <el-table-column prop="effectiveTime" label="生效时间" width="170" />
-      <el-table-column label="操作" width="260" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
           <el-button
-            v-if="row.status === 0"
+            v-if="row.status === 0 || row.status === 1"
             link
             type="primary"
             size="small"
@@ -74,7 +74,20 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="editVisible" title="编辑草稿" width="640px" destroy-on-close>
+    <el-dialog
+      v-model="editVisible"
+      :title="editForm.status === 1 ? '编辑已发布协议' : '编辑草稿'"
+      width="640px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="editForm.status === 1"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 12px"
+        description="保存后将直接更新用户端展示的标题与正文，版本号不变；不会要求已同意用户重新勾选。"
+      />
       <el-form label-width="88px">
         <el-form-item label="标题" required>
           <el-input v-model="editForm.title" />
@@ -99,7 +112,7 @@ import {
   deleteLegalDraft,
   listLegalDocuments,
   publishLegalDocument,
-  updateLegalDraft,
+  updateLegalDocument,
   type LegalDocumentRow,
 } from '@/api/legalAdmin'
 
@@ -128,6 +141,7 @@ const createForm = reactive({
 const editVisible = ref(false)
 const editForm = reactive({
   id: '',
+  status: 0 as number,
   title: '',
   body: '',
 })
@@ -179,6 +193,7 @@ async function submitCreate() {
 
 function openEdit(row: LegalDocumentRow) {
   editForm.id = row.id
+  editForm.status = row.status
   editForm.title = row.title
   editForm.body = row.body
   editVisible.value = true
@@ -191,7 +206,7 @@ async function submitEdit() {
   }
   saving.value = true
   try {
-    await updateLegalDraft(editForm.id, {
+    await updateLegalDocument(editForm.id, {
       title: editForm.title.trim(),
       body: editForm.body.trim(),
     })
