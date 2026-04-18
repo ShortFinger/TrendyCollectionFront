@@ -58,6 +58,11 @@ export function activityVoToSaveRequest(vo: ActivityVO, patch?: Partial<Activity
     amountLimit: vo.amountLimit ?? 0,
     categoryId,
     isRandomRewardEnabled: vo.isRandomRewardEnabled === 1 ? 1 : 0,
+    ...(vo.pityEnabled !== undefined && {
+      pityEnabled: vo.pityEnabled,
+      pityThreshold: vo.pityThreshold ?? 0,
+      pityRewardLevelId: vo.pityRewardLevelId ?? undefined,
+    }),
     ...patch,
   }
 }

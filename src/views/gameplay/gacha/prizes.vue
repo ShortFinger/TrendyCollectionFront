@@ -130,10 +130,26 @@
             <el-tag :type="row.status === 'ON_SHELF' ? 'success' : 'info'" size="small">{{ row.status === 'ON_SHELF' ? '上架' : '下架' }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="展示项" width="90">
+          <template #default="{ row }">
+            <el-tag v-if="row.isDisplayItem" type="success" size="small">是</el-tag>
+            <span v-else>否</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-popconfirm
+              v-if="!row.isDisplayItem"
+              title="将该奖品设为展示项，并替换当前展示项，是否继续？"
+              @confirm="handleSetDisplayItem(row)"
+            >
+              <template #reference>
+                <el-button link type="warning" size="small">设为展示项</el-button>
+              </template>
+            </el-popconfirm>
+            <el-button v-else link size="small" disabled>当前展示项</el-button>
             <el-popconfirm title="确定删除该奖品？" @confirm="handleDelete(row.id)">
               <template #reference>
                 <el-button link type="danger" size="small">删除</el-button>
@@ -374,7 +390,7 @@ import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import MediaUpload from '@/components/MediaUpload.vue'
 import { getActivity, updateActivity, postLotterySimulation } from '@/api/activity'
 import { listBoxes } from '@/api/activityBox'
-import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
+import { listSkus, createSku, updateSku, deleteSku, setDisplayItem } from '@/api/sku'
 import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
 import type { ActivityVO, LotterySimulationRequest, LotterySimulationResponse } from '@/types/activity'
@@ -904,6 +920,16 @@ async function handleDelete(id: string) {
   ElMessage.success('删除成功')
   fetchSkus()
   recalcProfitRate()
+}
+
+async function handleSetDisplayItem(row: SkuVO) {
+  if (row.status !== 'ON_SHELF') {
+    ElMessage.warning('仅上架奖品可设为展示项')
+    return
+  }
+  await setDisplayItem(activityId, row.id)
+  ElMessage.success('设置成功')
+  await fetchSkus()
 }
 
 onMounted(() => {

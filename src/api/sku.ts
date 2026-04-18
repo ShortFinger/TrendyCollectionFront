@@ -21,3 +21,7 @@ export function updateSku(activityId: string, id: string, data: SkuSaveRequest) 
 export function deleteSku(activityId: string, id: string) {
   return request.delete<any, Result<void>>(`/order-admin-api/activities/${activityId}/skus/${id}`)
 }
+
+export function setDisplayItem(activityId: string, id: string) {
+  return request.post<any, Result<void>>(`/order-admin-api/activities/${activityId}/skus/${id}/display-item`)
+}

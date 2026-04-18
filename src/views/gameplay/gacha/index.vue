@@ -156,6 +156,34 @@
         <el-form-item label="随机赠送">
           <el-switch v-model="form.isRandomRewardEnabled" :active-value="1" :inactive-value="0" />
         </el-form-item>
+        <template v-if="isEdit">
+          <el-divider content-position="left">保底（连续未中目标等级）</el-divider>
+          <el-form-item label="开启保底">
+            <el-switch v-model="form.pityEnabled" />
+          </el-form-item>
+          <el-form-item v-if="form.pityEnabled" label="保底阈值" prop="pityThreshold">
+            <el-input-number v-model="form.pityThreshold" :min="1" :step="1" style="width: 100%" />
+            <span class="hint">连续未抽中该等级的次数达到阈值后，下一抽必从该等级池出奖</span>
+          </el-form-item>
+          <el-form-item v-if="form.pityEnabled" label="目标等级" prop="pityRewardLevelId">
+            <el-select
+              v-model="form.pityRewardLevelId"
+              placeholder="选择奖品等级"
+              clearable
+              filterable
+              style="width: 100%"
+            >
+              <el-option
+                v-for="lv in rewardLevelOptions"
+                :key="lv.id"
+                :label="lv.title || lv.id"
+                :value="lv.id"
+              />
+            </el-select>
+            <span class="hint">来自本活动的奖品等级配置</span>
+          </el-form-item>
+        </template>
+        <p v-else class="hint" style="margin-left: 120px">创建卡池后，编辑时可配置保底。</p>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -197,6 +225,7 @@ import {
   getActivity,
 } from '@/api/activity'
 import { listCategories } from '@/api/category'
+import { listRewardLevels } from '@/api/rewardLevel'
 import type { ActivityVO, ActivitySaveRequest, MultiDrawTierItem } from '@/types/activity'
 import MultiDrawTierEditor from '@/components/MultiDrawTierEditor.vue'
 import {
@@ -206,6 +235,7 @@ import {
   formatTierSummary,
 } from '@/utils/activityMultiDraw'
 import type { CategoryVO } from '@/types/category'
+import type { RewardLevelVO } from '@/types/rewardLevel'
 import { ActivityTypeCode } from '@/constants/domainCodes'
 import MediaUpload from '@/components/MediaUpload.vue'
 import { moveFiles } from '@/api/oss'
@@ -225,6 +255,7 @@ const loading = ref(false)
 const list = ref<ActivityVO[]>([])
 const total = ref(0)
 const categoryOptions = ref<CategoryVO[]>([])
+const rewardLevelOptions = ref<RewardLevelVO[]>([])
 const query = reactive({
   page: 1,
   size: 10,
@@ -260,6 +291,9 @@ const form = reactive({
   amountLimit: 0,
   categoryId: undefined as string | undefined,
   isRandomRewardEnabled: 0 as 0 | 1,
+  pityEnabled: false,
+  pityThreshold: 90,
+  pityRewardLevelId: undefined as string | undefined,
 })
 
 function uploadDir(field: string) {
@@ -274,6 +308,38 @@ const formRules: FormRules = {
   moneyPrice: [{ required: true, message: '请输入价格', trigger: 'blur' }],
   scorePrice: [{ required: true, message: '请输入积分价格', trigger: 'blur' }],
   perUserLimit: [perUserLimitFormRule],
+  pityThreshold: [
+    {
+      validator: (_rule, val, cb) => {
+        if (!form.pityEnabled) {
+          cb()
+          return
+        }
+        if (typeof val !== 'number' || val < 1) {
+          cb(new Error('保底阈值须为大于 0 的整数'))
+          return
+        }
+        cb()
+      },
+      trigger: 'blur',
+    },
+  ],
+  pityRewardLevelId: [
+    {
+      validator: (_rule, val, cb) => {
+        if (!form.pityEnabled) {
+          cb()
+          return
+        }
+        if (!val || String(val).trim() === '') {
+          cb(new Error('请选择目标等级'))
+          return
+        }
+        cb()
+      },
+      trigger: 'change',
+    },
+  ],
 }
 
 function buildSavePayload(): ActivitySaveRequest {
@@ -300,6 +366,13 @@ function buildSavePayload(): ActivitySaveRequest {
         ? String(form.categoryId).trim()
         : undefined,
     isRandomRewardEnabled: form.isRandomRewardEnabled,
+    ...(isEdit.value
+      ? {
+          pityEnabled: form.pityEnabled,
+          pityThreshold: form.pityEnabled ? form.pityThreshold : 0,
+          pityRewardLevelId: form.pityEnabled ? form.pityRewardLevelId : undefined,
+        }
+      : {}),
   }
 }
 
@@ -324,7 +397,11 @@ function resetForm() {
     amountLimit: 0,
     categoryId: undefined,
     isRandomRewardEnabled: 0,
+    pityEnabled: false,
+    pityThreshold: 90,
+    pityRewardLevelId: undefined,
   })
+  rewardLevelOptions.value = []
 }
 
 function rowToForm(row: ActivityVO) {
@@ -352,6 +429,11 @@ function rowToForm(row: ActivityVO) {
     categoryId:
       row.categoryId != null && String(row.categoryId).trim() !== '' ? String(row.categoryId).trim() : undefined,
     isRandomRewardEnabled: (row.isRandomRewardEnabled === 1 ? 1 : 0) as 0 | 1,
+    pityEnabled: row.pityEnabled === true,
+    pityThreshold: row.pityThreshold != null && row.pityThreshold > 0 ? row.pityThreshold : 90,
+    pityRewardLevelId: row.pityRewardLevelId != null && String(row.pityRewardLevelId).trim() !== ''
+      ? String(row.pityRewardLevelId).trim()
+      : undefined,
   })
 }
 
@@ -439,12 +521,20 @@ function handleAdd() {
   dialogVisible.value = true
 }
 
-function handleEdit(row: ActivityVO) {
+async function handleEdit(row: ActivityVO) {
   isEdit.value = true
   editId.value = row.id
   tempId.value = ''
-  rowToForm(row)
   dialogVisible.value = true
+  try {
+    const { data } = await getActivity(row.id)
+    rowToForm(data)
+    const { data: levels } = await listRewardLevels(row.id)
+    rewardLevelOptions.value = levels ?? []
+  } catch {
+    ElMessage.error('加载活动详情失败')
+    dialogVisible.value = false
+  }
 }
 
 async function handleSubmit() {

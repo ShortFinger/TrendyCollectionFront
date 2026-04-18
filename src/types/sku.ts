@@ -30,6 +30,7 @@ export interface SkuVO {
   isUnlimitedStock?: boolean
   imageUrl: string
   status: string
+  isDisplayItem?: boolean
   openBoxAnimation: string
   frontImage: string
   backImage: string

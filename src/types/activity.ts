@@ -50,6 +50,10 @@ export interface ActivityVO {
   categoryTitle?: string | null
   createTime: string
   updateTime: string
+  /** 抽卡机 CARD 保底 */
+  pityEnabled?: boolean
+  pityThreshold?: number
+  pityRewardLevelId?: string | null
 }
 
 export interface ActivitySaveRequest {
@@ -78,6 +82,10 @@ export interface ActivitySaveRequest {
   amountLimit?: number
   categoryId?: string
   isRandomRewardEnabled?: number
+  /** 抽卡机编辑时提交；新建可不传 */
+  pityEnabled?: boolean
+  pityThreshold?: number
+  pityRewardLevelId?: string
 }
 
 export interface LotterySimulationRequest {
