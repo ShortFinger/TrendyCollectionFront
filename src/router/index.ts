@@ -169,7 +169,7 @@ const routes: RouteRecordRaw[] = [
         name: 'Welfare',
         component: ParentView,
         redirect: '/welfare/overview',
-        meta: { title: '福利管理', icon: 'Gift' },
+        meta: { title: '福利管理', icon: 'Present' },
         children: [
           {
             path: 'overview',
