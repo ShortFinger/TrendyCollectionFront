@@ -1,16 +1,10 @@
 /**
- * 执行 activity_pity 表迁移（依赖本目录 node_modules 中的 mysql2）。
+ * 执行 sku.is_display_item 迁移（mysql2 在 TrendyCollectionFront/node_modules）。
  *
- * 方式 1 — 使用 Order Admin 的 dev 数据源（默认）：
- *   node scripts/run-activity-pity-migration.mjs --dev
+ *   node scripts/run-sku-display-item-migration.mjs --dev
+ *   node scripts/run-sku-display-item-migration.mjs --config path/to/application-dev.yml
  *
- * 方式 2 — 指定 Spring YAML：
- *   node scripts/run-activity-pity-migration.mjs --config path/to/application-dev.yml
- *
- * 方式 3 — 环境变量（覆盖一切）：
- *   MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD MYSQL_DATABASE
- *
- * 无参数时：与旧版相同，默认连 127.0.0.1:3306 root/root trendy_collection
+ * 环境变量覆盖：MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD MYSQL_DATABASE
  */
 import fs from 'fs'
 import path from 'path'
@@ -25,8 +19,8 @@ const defaultDevYml = path.join(
   'TrendyCollectionService/TrendyCollectionOrderAdmin/src/main/resources/application-dev.yml',
 )
 const sqlPath = path.join(
-  frontRoot,
-  '../TrendyCollectionService/database/migrations/2026-04-18-activity-pity-config-state.sql',
+  repoRoot,
+  'TrendyCollectionService/database/migrations/2026-04-17-sku-is-display-item.sql',
 )
 
 function parseArgs(argv) {
@@ -42,9 +36,6 @@ function parseArgs(argv) {
   return { useDev, configPath }
 }
 
-/**
- * 从 Spring Boot application-*.yml 读取 spring.datasource（仅支持单行 url/username/password）。
- */
 function loadDatasourceFromYaml(filePath) {
   const text = fs.readFileSync(filePath, 'utf8')
   const urlLine = text.match(/^\s*url:\s*(.+)$/m)
