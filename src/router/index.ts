@@ -57,6 +57,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '发货管理', icon: 'Van' },
       },
       {
+        path: 'user-addresses',
+        name: 'UserAddresses',
+        component: () => import('@/views/user-addresses/index.vue'),
+        meta: { title: '用户收货地址', icon: 'Location' },
+      },
+      {
         path: 'warehouse',
         name: 'Warehouse',
         component: () => import('@/views/warehouse/index.vue'),
