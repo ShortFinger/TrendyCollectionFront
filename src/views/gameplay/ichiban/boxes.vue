@@ -274,7 +274,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="prizeDialogVisible" :title="prizeDialogTitle" width="720px" :close-on-click-modal="false" append-to-body>
+    <el-dialog v-model="prizeDialogVisible" :title="prizeDialogTitle" width="800px" :close-on-click-modal="false" append-to-body>
       <el-form ref="prizeFormRef" :model="prizeForm" :rules="prizeFormRules" label-width="130px">
         <el-form-item v-if="prizeSkuEditId" label="SKU 编码">
           <el-input :model-value="prizeForm.skuCode" disabled />
@@ -286,6 +286,26 @@
           <el-select v-model="prizeForm.rewardLevelId" placeholder="请选择" filterable style="width: 100%">
             <el-option v-for="opt in rewardLevelOptions" :key="opt.id" :label="opt.title" :value="opt.id" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="发货规则组" prop="freightRuleGroupId">
+          <div style="display: flex; gap: 8px; width: 100%; align-items: center; flex-wrap: wrap">
+            <el-select v-model="prizeForm.freightRuleGroupId" placeholder="请选择规则组" filterable clearable style="flex: 1; min-width: 220px">
+              <el-option
+                v-for="g in freightRuleGroupOptions"
+                :key="g.id"
+                :label="`${g.groupName}（默认 ${((g.baseFreightCent ?? 0) / 100).toFixed(2)} 元）`"
+                :value="g.id"
+              />
+            </el-select>
+            <el-button @click="openBoxFreightGroupDialog">新建规则组</el-button>
+          </div>
+        </el-form-item>
+        <el-form-item v-if="prizeSkuEditId" label="运费试算">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+            <el-input-number v-model="boxFreightPreviewQty" :min="1" :step="1" style="width: 140px" />
+            <el-button :loading="boxFreightPreviewLoading" @click="runBoxFreightPreview">试算</el-button>
+            <span v-if="boxFreightPreviewResult" style="color: var(--el-text-color-secondary); font-size: 13px">{{ boxFreightPreviewResult }}</span>
+          </div>
         </el-form-item>
         <el-form-item label="关联商品" prop="selectedProductIds">
           <div style="width: 100%">
@@ -352,6 +372,42 @@
       <template #footer>
         <el-button @click="prizeDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="prizeSubmitLoading" @click="handlePrizeDialogSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="boxFreightGroupDialogVisible" title="新建发货规则组" width="600px" append-to-body :close-on-click-modal="false">
+      <el-form label-width="140px">
+        <el-form-item label="规则组名称" required>
+          <el-input v-model="boxNewFreightGroup.groupName" placeholder="便于运营识别" />
+        </el-form-item>
+        <el-form-item label="默认运费(分)" required>
+          <el-input-number v-model="boxNewFreightGroup.baseFreightCent" :min="0" :step="1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="阶梯">
+          <el-button size="small" @click="addBoxFreightTierRow">增行</el-button>
+          <span style="margin-left: 8px; color: var(--el-text-color-secondary); font-size: 12px">件数≥门槛时取最大门槛对应运费；否则用默认运费</span>
+        </el-form-item>
+        <el-table :data="boxNewFreightGroup.tiers" border size="small" style="width: 100%">
+          <el-table-column label="件数≥" width="140">
+            <template #default="{ row }">
+              <el-input-number v-model="row.thresholdQty" :min="1" :step="1" controls-position="right" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="运费(分)">
+            <template #default="{ row }">
+              <el-input-number v-model="row.freightCent" :min="0" :step="1" controls-position="right" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="72">
+            <template #default="{ $index }">
+              <el-button link type="danger" size="small" @click="removeBoxFreightTierRow($index)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-form>
+      <template #footer>
+        <el-button @click="boxFreightGroupDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="boxFreightGroupSaveLoading" @click="submitBoxNewFreightGroup">保存</el-button>
       </template>
     </el-dialog>
 
@@ -556,12 +612,14 @@ import type { FormInstance, FormRules, ElTable } from 'element-plus'
 import { getActivity, postLotterySimulation } from '@/api/activity'
 import { listBoxes, createBox, updateBox, deleteBox, linkSkuToBox, copySkuToBox, duplicateBox } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku } from '@/api/sku'
+import { listFreightRuleGroups, createFreightRuleGroup, calcFreightPreview } from '@/api/freightRule'
 import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
 import MediaUpload from '@/components/MediaUpload.vue'
 import type { ActivityVO, LotterySimulationRequest, LotterySimulationResponse } from '@/types/activity'
 import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
+import type { FreightRuleGroupVO } from '@/types/freightRule'
 import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
 import {
@@ -817,6 +875,7 @@ const prizeForm = reactive({
   rightImage: '',
   topImage: '',
   bottomImage: '',
+  freightRuleGroupId: '' as string,
 })
 
 const productIdsValidator = (_rule: unknown, value: string[], callback: (e?: Error) => void) => {
@@ -829,12 +888,30 @@ const prizeRewardLevelValidator = (_rule: unknown, value: string, callback: (e?:
   else callback()
 }
 
+const prizeFreightRuleGroupValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (!value) callback(new Error('请选择发货规则组'))
+  else callback()
+}
+
 const prizeFormRules: FormRules = {
   name: [{ required: true, message: '请输入奖品名称', trigger: 'blur' }],
   selectedProductIds: [{ required: true, validator: productIdsValidator, trigger: 'change' }],
   stockQuantity: [{ required: true, message: '请输入库存（签数）', trigger: 'blur' }],
   rewardLevelId: [{ validator: prizeRewardLevelValidator, trigger: 'change' }],
+  freightRuleGroupId: [{ validator: prizeFreightRuleGroupValidator, trigger: 'change' }],
 }
+
+const freightRuleGroupOptions = ref<FreightRuleGroupVO[]>([])
+const boxFreightGroupDialogVisible = ref(false)
+const boxFreightGroupSaveLoading = ref(false)
+const boxNewFreightGroup = reactive({
+  groupName: '',
+  baseFreightCent: 0,
+  tiers: [] as { thresholdQty: number; freightCent: number }[],
+})
+const boxFreightPreviewQty = ref(1)
+const boxFreightPreviewLoading = ref(false)
+const boxFreightPreviewResult = ref('')
 
 const boxLimitReached = computed(() => {
   if (!activity.value || !activity.value.boxCount) return false
@@ -864,6 +941,7 @@ function buildPrizePayload(): SkuSaveRequest {
     topImage: prizeForm.topImage || undefined,
     bottomImage: prizeForm.bottomImage || undefined,
     rewardLevelId: prizeForm.rewardLevelId || undefined,
+    freightRuleGroupId: prizeForm.freightRuleGroupId,
   }
 }
 
@@ -887,6 +965,7 @@ function resetPrizeForm() {
     rightImage: '',
     topImage: '',
     bottomImage: '',
+    freightRuleGroupId: '',
   })
 }
 
@@ -916,7 +995,83 @@ async function rowToPrizeForm(row: SkuVO) {
     rightImage: row.rightImage || '',
     topImage: row.topImage || '',
     bottomImage: row.bottomImage || '',
+    freightRuleGroupId: row.freightRuleGroupId || '',
   })
+  boxFreightPreviewResult.value = ''
+}
+
+async function fetchBoxFreightRuleGroups() {
+  try {
+    const { data } = await listFreightRuleGroups({ page: 1, size: 500 })
+    freightRuleGroupOptions.value = data.records ?? []
+  } catch (e) {
+    console.error('fetchBoxFreightRuleGroups failed', e)
+  }
+}
+
+function openBoxFreightGroupDialog() {
+  boxNewFreightGroup.groupName = ''
+  boxNewFreightGroup.baseFreightCent = 0
+  boxNewFreightGroup.tiers = [{ thresholdQty: 1, freightCent: 0 }]
+  boxFreightGroupDialogVisible.value = true
+}
+
+function addBoxFreightTierRow() {
+  boxNewFreightGroup.tiers.push({ thresholdQty: 1, freightCent: 0 })
+}
+
+function removeBoxFreightTierRow(index: number) {
+  boxNewFreightGroup.tiers.splice(index, 1)
+}
+
+async function submitBoxNewFreightGroup() {
+  const name = boxNewFreightGroup.groupName.trim()
+  if (!name) {
+    ElMessage.error('请填写规则组名称')
+    return
+  }
+  if (!boxNewFreightGroup.tiers.length) {
+    ElMessage.error('至少配置一条阶梯')
+    return
+  }
+  const tiersJson = JSON.stringify(
+    boxNewFreightGroup.tiers.map((t) => ({
+      thresholdQty: Math.floor(Number(t.thresholdQty)),
+      freightCent: Math.floor(Number(t.freightCent)),
+    })),
+  )
+  boxFreightGroupSaveLoading.value = true
+  try {
+    const { data: id } = await createFreightRuleGroup({
+      groupName: name,
+      baseFreightCent: Math.floor(Number(boxNewFreightGroup.baseFreightCent)),
+      tiersJson,
+      status: 1,
+    })
+    ElMessage.success('规则组已创建')
+    boxFreightGroupDialogVisible.value = false
+    await fetchBoxFreightRuleGroups()
+    prizeForm.freightRuleGroupId = id
+    prizeFormRef.value?.validateField('freightRuleGroupId')
+  } finally {
+    boxFreightGroupSaveLoading.value = false
+  }
+}
+
+async function runBoxFreightPreview() {
+  if (!prizeSkuEditId.value) {
+    ElMessage.info('请先保存 SKU 后再试算')
+    return
+  }
+  boxFreightPreviewLoading.value = true
+  boxFreightPreviewResult.value = ''
+  try {
+    const { data } = await calcFreightPreview({ skuId: prizeSkuEditId.value, buyQty: boxFreightPreviewQty.value })
+    const hit = data.matchedThresholdQty != null ? `命中门槛 ${data.matchedThresholdQty} 件` : '未命中阶梯，使用默认运费'
+    boxFreightPreviewResult.value = `运费 ${data.freightCent} 分（${hit}）`
+  } finally {
+    boxFreightPreviewLoading.value = false
+  }
 }
 
 function refreshPrizePricesFromSelectedProducts() {
@@ -1016,6 +1171,8 @@ async function openPrizeDialogForDraft() {
   skuTempId.value = crypto.randomUUID()
   resetPrizeForm()
   await fetchLevelConfig()
+  await fetchBoxFreightRuleGroups()
+  boxFreightPreviewResult.value = ''
   prizeDialogVisible.value = true
 }
 
@@ -1026,6 +1183,8 @@ async function openPrizeDialogForNewSku() {
   skuTempId.value = crypto.randomUUID()
   resetPrizeForm()
   await fetchLevelConfig()
+  await fetchBoxFreightRuleGroups()
+  boxFreightPreviewResult.value = ''
   prizeDialogVisible.value = true
 }
 
@@ -1036,6 +1195,7 @@ async function openPrizeDialogEditSku(row: SkuVO) {
   skuTempId.value = ''
   resetPrizeForm()
   await fetchLevelConfig()
+  await fetchBoxFreightRuleGroups()
   await rowToPrizeForm(row)
   prizeDialogVisible.value = true
 }
@@ -1367,6 +1527,7 @@ onMounted(() => {
   fetchActivity()
   fetchBoxes()
   fetchLevelConfig()
+  fetchBoxFreightRuleGroups()
 })
 </script>
 

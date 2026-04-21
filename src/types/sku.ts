@@ -31,6 +31,8 @@ export interface SkuVO {
   imageUrl: string
   status: string
   isDisplayItem?: boolean
+  /** 发货规则组 ID */
+  freightRuleGroupId?: string
   openBoxAnimation: string
   frontImage: string
   backImage: string
@@ -65,4 +67,6 @@ export interface SkuSaveRequest {
   rightImage?: string
   topImage?: string
   bottomImage?: string
+  /** 发货规则组 ID（必填） */
+  freightRuleGroupId: string
 }

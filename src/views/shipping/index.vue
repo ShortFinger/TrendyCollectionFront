@@ -2,7 +2,7 @@
   <div class="page shipping-page">
     <el-card>
       <template #header>
-        <span>发货管理</span>
+        <span>订单发货</span>
       </template>
       <el-form :inline="true" class="filter-form">
         <el-form-item label="搜索">

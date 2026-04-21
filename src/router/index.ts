@@ -52,9 +52,24 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'shipping',
-        name: 'Shipping',
-        component: () => import('@/views/shipping/index.vue'),
+        name: 'ShippingParent',
+        component: ParentView,
+        redirect: '/shipping/orders',
         meta: { title: '发货管理', icon: 'Van' },
+        children: [
+          {
+            path: 'orders',
+            name: 'ShippingOrders',
+            component: () => import('@/views/shipping/index.vue'),
+            meta: { title: '订单发货' },
+          },
+          {
+            path: 'freight-rules',
+            name: 'ShippingFreightRules',
+            component: () => import('@/views/shipping/freight-rules/index.vue'),
+            meta: { title: '发货规则' },
+          },
+        ],
       },
       {
         path: 'warehouse',

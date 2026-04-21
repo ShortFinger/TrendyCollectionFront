@@ -171,7 +171,7 @@
       />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑奖品' : '新增奖品'" width="720px" :close-on-click-modal="false">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑奖品' : '新增奖品'" width="800px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="130px">
         <el-form-item v-if="isEdit" label="SKU 编码">
           <el-input :model-value="form.skuCode" disabled />
@@ -182,6 +182,16 @@
         <el-form-item v-if="rewardLevelOptions.length > 0" label="奖品等级" prop="rewardLevelId">
           <el-select v-model="form.rewardLevelId" placeholder="请选择" filterable style="width: 100%">
             <el-option v-for="opt in rewardLevelOptions" :key="opt.id" :label="opt.title" :value="opt.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="发货规则组" prop="freightRuleGroupId">
+          <el-select v-model="form.freightRuleGroupId" placeholder="请选择规则组" filterable clearable style="width: 100%">
+            <el-option
+              v-for="g in freightRuleGroupOptions"
+              :key="g.id"
+              :label="`${g.groupName}（默认 ${((g.baseFreightCent ?? 0) / 100).toFixed(2)} 元）`"
+              :value="g.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="关联商品" prop="selectedProductIds">
@@ -391,11 +401,13 @@ import MediaUpload from '@/components/MediaUpload.vue'
 import { getActivity, updateActivity, postLotterySimulation } from '@/api/activity'
 import { listBoxes } from '@/api/activityBox'
 import { listSkus, createSku, updateSku, deleteSku, setDisplayItem } from '@/api/sku'
+import { listFreightRuleGroups } from '@/api/freightRule'
 import { listRewardLevels, replaceRewardLevels } from '@/api/rewardLevel'
 import { listProducts } from '@/api/product'
 import type { ActivityVO, LotterySimulationRequest, LotterySimulationResponse } from '@/types/activity'
 import type { ActivityBoxVO } from '@/types/activityBox'
 import type { SkuVO, SkuSaveRequest } from '@/types/sku'
+import type { FreightRuleGroupVO } from '@/types/freightRule'
 import type { RewardLevelVO } from '@/types/rewardLevel'
 import type { ProductVO } from '@/types/product'
 import { isKujiActivityFamily } from '@/constants/domainCodes'
@@ -553,6 +565,8 @@ const selectedProducts = computed(() =>
   form.selectedProductIds.map(id => allProductsMap.value.get(id)).filter(Boolean) as ProductVO[]
 )
 
+const freightRuleGroupOptions = ref<FreightRuleGroupVO[]>([])
+
 const form = reactive({
   skuCode: '',
   name: '',
@@ -572,6 +586,7 @@ const form = reactive({
   topImage: '',
   bottomImage: '',
   rewardLevelId: '' as string,
+  freightRuleGroupId: '' as string,
 })
 
 const productIdsValidator = (_rule: any, value: string[], callback: any) => {
@@ -584,12 +599,18 @@ const rewardLevelValidator = (_rule: unknown, value: string, callback: (e?: Erro
   else callback()
 }
 
+const freightRuleGroupValidator = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (!value) callback(new Error('请选择发货规则组'))
+  else callback()
+}
+
 const formRules: FormRules = {
   name: [{ required: true, message: '请输入奖品名称', trigger: 'blur' }],
   selectedProductIds: [{ required: true, validator: productIdsValidator, trigger: 'change' }],
   rewardProbability: [{ required: true, message: '请输入开奖概率', trigger: 'blur' }],
   stockQuantity: [{ required: true, message: '请输入库存', trigger: 'blur' }],
   rewardLevelId: [{ validator: rewardLevelValidator, trigger: 'change' }],
+  freightRuleGroupId: [{ validator: freightRuleGroupValidator, trigger: 'change' }],
 }
 
 function buildPayload(): SkuSaveRequest {
@@ -609,6 +630,7 @@ function buildPayload(): SkuSaveRequest {
     topImage: form.topImage || undefined,
     bottomImage: form.bottomImage || undefined,
     rewardLevelId: form.rewardLevelId || undefined,
+    freightRuleGroupId: form.freightRuleGroupId,
   }
 }
 
@@ -633,6 +655,7 @@ function resetForm() {
     topImage: '',
     bottomImage: '',
     rewardLevelId: '',
+    freightRuleGroupId: '',
   })
 }
 
@@ -663,6 +686,7 @@ async function rowToForm(row: SkuVO) {
     topImage: row.topImage || '',
     bottomImage: row.bottomImage || '',
     rewardLevelId: row.rewardLevelId || '',
+    freightRuleGroupId: row.freightRuleGroupId || '',
   })
 }
 
@@ -853,6 +877,15 @@ async function fetchActivity() {
   }
 }
 
+async function fetchFreightRuleGroups() {
+  try {
+    const { data } = await listFreightRuleGroups({ page: 1, size: 500 })
+    freightRuleGroupOptions.value = data.records ?? []
+  } catch (e) {
+    console.error('fetchFreightRuleGroups failed', e)
+  }
+}
+
 async function fetchSkus() {
   loading.value = true
   try {
@@ -883,6 +916,7 @@ async function handleAdd() {
   skuTempId.value = crypto.randomUUID()
   resetForm()
   await fetchLevelConfig()
+  await fetchFreightRuleGroups()
   dialogVisible.value = true
 }
 
@@ -891,6 +925,7 @@ async function handleEdit(row: SkuVO) {
   editId.value = row.id
   skuTempId.value = ''
   await fetchLevelConfig()
+  await fetchFreightRuleGroups()
   await rowToForm(row)
   dialogVisible.value = true
 }
@@ -936,6 +971,7 @@ onMounted(() => {
   fetchActivity()
   fetchSkus()
   fetchLevelConfig()
+  fetchFreightRuleGroups()
 })
 </script>
 
