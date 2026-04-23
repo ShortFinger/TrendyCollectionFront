@@ -58,16 +58,16 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '发货管理', icon: 'Van' },
         children: [
           {
-            path: 'freight-rules',
-            name: 'ShippingFreightRules',
-            component: () => import('@/views/shipping/freight-rules/index.vue'),
-            meta: { title: '发货规则' },
-          },
-          {
             path: 'cabinet-ship',
             name: 'ShippingCabinetWorkbench',
             component: () => import('@/views/shipping/cabinet-ship-workbench.vue'),
             meta: { title: '盒柜发货' },
+          },
+          {
+            path: 'freight-rules',
+            name: 'ShippingFreightRules',
+            component: () => import('@/views/shipping/freight-rules/index.vue'),
+            meta: { title: '发货规则' },
           },
         ],
       },

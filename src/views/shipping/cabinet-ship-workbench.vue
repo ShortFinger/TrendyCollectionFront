@@ -5,6 +5,11 @@
         <span>盒柜发货</span>
       </template>
 
+      <el-tabs v-model="activeTab" class="status-tabs" @tab-change="onTabChange">
+        <el-tab-pane :label="pendingLabel" :name="TAB_PENDING" />
+        <el-tab-pane :label="shippedLabel" :name="TAB_SHIPPED" />
+      </el-tabs>
+
       <el-form :inline="true" class="filter-form">
         <el-form-item label="申请单ID">
           <el-input v-model="query.shipOrderId" clearable placeholder="shipOrderId" style="width: 180px" />
@@ -14,13 +19,6 @@
         </el-form-item>
         <el-form-item label="用户ID">
           <el-input v-model="query.userId" clearable placeholder="userId" style="width: 180px" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" style="width: 160px">
-            <el-option label="待发货(PENDING_REVIEW)" value="PENDING_REVIEW" />
-            <el-option label="处理中(PROCESSING)" value="PROCESSING" />
-            <el-option label="已发货(SHIPPED)" value="SHIPPED" />
-          </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="onSearch">查询</el-button>
@@ -64,21 +62,33 @@
       />
     </el-card>
 
-    <ShipConfirmDialog v-model="shipDialogVisible" :ship-order-id="currentShipOrderId" @success="fetchData" />
+    <ShipConfirmDialog v-model="shipDialogVisible" :ship-order-id="currentShipOrderId" @success="refreshAfterStatusChanged" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { listCabinetShipOrders } from '@/api/cabinetShip'
 import type { CabinetShipOrderItem, CabinetShipOrderQueryRequest } from '@/types/cabinetShip'
 import ShipConfirmDialog from '@/components/shipping/ShipConfirmDialog.vue'
+
+const TAB_PENDING = 'PENDING_REVIEW'
+const TAB_SHIPPED = 'SHIPPED'
 
 const loading = ref(false)
 const rows = ref<CabinetShipOrderItem[]>([])
 const total = ref(0)
 const shipDialogVisible = ref(false)
 const currentShipOrderId = ref('')
+const activeTab = ref(TAB_PENDING)
+const showCount = ref(true)
+const statusCount = reactive<Record<string, number>>({
+  [TAB_PENDING]: 0,
+  [TAB_SHIPPED]: 0,
+})
+const pendingLabel = computed(() => (showCount.value ? `待发货(${statusCount[TAB_PENDING]})` : '待发货'))
+const shippedLabel = computed(() => (showCount.value ? `已发货(${statusCount[TAB_SHIPPED]})` : '已发货'))
+let fetchSeq = 0
 
 const query = reactive<CabinetShipOrderQueryRequest>({
   page: 1,
@@ -86,10 +96,11 @@ const query = reactive<CabinetShipOrderQueryRequest>({
   shipOrderId: '',
   orderNo: '',
   userId: '',
-  status: 'PENDING_REVIEW',
+  status: TAB_PENDING,
 })
 
 async function fetchData() {
+  const seq = ++fetchSeq
   loading.value = true
   try {
     const params: CabinetShipOrderQueryRequest = {
@@ -101,11 +112,37 @@ async function fetchData() {
       userId: query.userId || undefined,
     }
     const { data } = await listCabinetShipOrders(params)
+    if (seq !== fetchSeq) {
+      return
+    }
     rows.value = data.records
     total.value = data.total
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) {
+      loading.value = false
+    }
   }
+}
+
+async function fetchStatusCount() {
+  try {
+    const [pendingRes, shippedRes] = await Promise.all([
+      listCabinetShipOrders({ page: 1, size: 1, status: TAB_PENDING }),
+      listCabinetShipOrders({ page: 1, size: 1, status: TAB_SHIPPED }),
+    ])
+    statusCount[TAB_PENDING] = pendingRes.data.total
+    statusCount[TAB_SHIPPED] = shippedRes.data.total
+    showCount.value = true
+  } catch {
+    showCount.value = false
+  }
+}
+
+function onTabChange(name: string | number) {
+  activeTab.value = String(name)
+  query.status = String(name)
+  query.page = 1
+  fetchData()
 }
 
 function onSearch() {
@@ -119,7 +156,8 @@ function onReset() {
   query.shipOrderId = ''
   query.orderNo = ''
   query.userId = ''
-  query.status = 'PENDING_REVIEW'
+  activeTab.value = TAB_PENDING
+  query.status = TAB_PENDING
   fetchData()
 }
 
@@ -128,10 +166,20 @@ function openShipDialog(shipOrderId: string) {
   shipDialogVisible.value = true
 }
 
-onMounted(fetchData)
+async function refreshAfterStatusChanged() {
+  await Promise.all([fetchStatusCount(), fetchData()])
+}
+
+onMounted(async () => {
+  await Promise.all([fetchStatusCount(), fetchData()])
+})
 </script>
 
 <style scoped>
+.status-tabs {
+  margin-bottom: 12px;
+}
+
 .filter-form {
   margin-bottom: 16px;
 }
