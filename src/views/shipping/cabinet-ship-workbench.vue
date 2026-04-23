@@ -2,7 +2,7 @@
   <div class="page">
     <el-card>
       <template #header>
-        <span>盒柜发货工作台</span>
+        <span>盒柜发货</span>
       </template>
 
       <el-form :inline="true" class="filter-form">
