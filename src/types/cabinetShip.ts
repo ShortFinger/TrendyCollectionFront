@@ -41,3 +41,17 @@ export interface CabinetShipConfirmResponse {
   shipRemark?: string
   shippedAt?: string
 }
+
+export type CabinetShipActivityType = 'ICHIBAN' | 'UNLIMITED' | 'CARD' | (string & {})
+
+export interface CabinetShipOrderItemDetail {
+  skuCode: string
+  skuName: string
+  skuImage?: string
+  quantity: number
+  recyclePrice?: number
+  originalPrice?: number
+  activityId?: string
+  activityName?: string
+  activityType?: CabinetShipActivityType
+}

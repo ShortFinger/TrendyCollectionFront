@@ -213,7 +213,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -242,6 +242,7 @@ import { moveFiles } from '@/api/oss'
 import { perUserLimitFormRule } from '@/utils/activityPerUserLimitRule'
 
 const router = useRouter()
+const route = useRoute()
 
 const ACT_TYPE_CARD = ActivityTypeCode.CARD
 
@@ -597,6 +598,10 @@ async function handleDelete(id: string) {
 }
 
 onMounted(() => {
+  const keyword = String(route.query.keyword ?? '').trim()
+  if (keyword) {
+    query.keyword = keyword
+  }
   void loadCategories()
   void fetchData()
 })

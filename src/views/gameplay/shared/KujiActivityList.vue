@@ -199,7 +199,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -231,6 +231,7 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 
 const tierDialogVisible = ref(false)
 const tierDialogLoading = ref(false)
@@ -555,6 +556,10 @@ async function handleDelete(id: string) {
 }
 
 onMounted(() => {
+  const keyword = String(route.query.keyword ?? '').trim()
+  if (keyword) {
+    query.keyword = keyword
+  }
   void loadCategories()
   void fetchData()
 })

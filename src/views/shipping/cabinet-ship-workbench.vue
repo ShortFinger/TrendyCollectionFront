@@ -26,12 +26,78 @@
         </el-form-item>
       </el-form>
 
-      <el-table v-loading="loading" :data="rows" stripe>
+      <el-table
+        ref="tableRef"
+        v-loading="loading"
+        :data="rows"
+        stripe
+        row-key="shipOrderId"
+        @row-click="handleRowClick"
+        @expand-change="handleExpandChange"
+      >
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="detail-panel">
+              <el-skeleton v-if="getDetailState(row.shipOrderId).loading" :rows="3" animated />
+              <el-empty
+                v-else-if="getDetailState(row.shipOrderId).error"
+                description="加载失败，请重试"
+                :image-size="80"
+              >
+                <el-button type="primary" link @click="retryDetail(row.shipOrderId)">重试</el-button>
+              </el-empty>
+              <el-empty
+                v-else-if="getDetailState(row.shipOrderId).loaded && getDetailState(row.shipOrderId).items.length === 0"
+                description="暂无SKU明细"
+                :image-size="80"
+              />
+              <el-table v-else :data="getDetailState(row.shipOrderId).items" size="small" stripe>
+                <el-table-column prop="skuCode" label="SKU编码" min-width="140" />
+                <el-table-column prop="skuName" label="SKU名称" min-width="160" />
+                <el-table-column label="主图" width="90">
+                  <template #default="{ row: detail }">
+                    <el-image
+                      v-if="detail.skuImage"
+                      :src="detail.skuImage"
+                      style="width: 40px; height: 40px"
+                      fit="cover"
+                      :preview-src-list="[detail.skuImage]"
+                      preview-teleported
+                    />
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="quantity" label="数量" width="80" />
+                <el-table-column label="回收价" width="120">
+                  <template #default="{ row: detail }">{{ formatCurrency(detail.recyclePrice) }}</template>
+                </el-table-column>
+                <el-table-column label="原价" width="120">
+                  <template #default="{ row: detail }">{{ formatCurrency(detail.originalPrice) }}</template>
+                </el-table-column>
+                <el-table-column label="来自哪个活动" min-width="180">
+                  <template #default="{ row: detail }">
+                    <el-button
+                      v-if="buildActivityKeyword(detail)"
+                      type="primary"
+                      link
+                      @click="goToActivity(detail)"
+                    >
+                      {{ getActivityText(detail) }}
+                    </el-button>
+                    <span v-else>{{ getActivityText(detail) }}</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="shipOrderId" label="申请单ID" min-width="180" />
         <el-table-column prop="orderNo" label="申请单号" min-width="180" />
         <el-table-column prop="userId" label="用户ID" width="160" />
         <el-table-column prop="assetCount" label="资产数" width="90" />
-        <el-table-column prop="status" label="状态" width="150" />
+        <el-table-column prop="status" label="状态" width="150">
+          <template #default="{ row }">{{ getStatusLabel(row.status) }}</template>
+        </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column prop="shippedAt" label="发货时间" width="180">
           <template #default="{ row }">{{ row.shippedAt || '-' }}</template>
@@ -42,7 +108,7 @@
               v-if="row.status === 'PENDING_REVIEW'"
               type="primary"
               link
-              @click="openShipDialog(row.shipOrderId)"
+              @click.stop="openShipDialog(row.shipOrderId)"
             >
               去发货
             </el-button>
@@ -68,14 +134,25 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { listCabinetShipOrders } from '@/api/cabinetShip'
-import type { CabinetShipOrderItem, CabinetShipOrderQueryRequest } from '@/types/cabinetShip'
+import { useRouter } from 'vue-router'
+import { listCabinetShipOrderItems, listCabinetShipOrders } from '@/api/cabinetShip'
+import type { CabinetShipOrderItem, CabinetShipOrderItemDetail, CabinetShipOrderQueryRequest } from '@/types/cabinetShip'
 import ShipConfirmDialog from '@/components/shipping/ShipConfirmDialog.vue'
 
 const TAB_PENDING = 'PENDING_REVIEW'
 const TAB_SHIPPED = 'SHIPPED'
+const statusLabelMap: Record<string, string> = {
+  [TAB_PENDING]: '待发货',
+  [TAB_SHIPPED]: '已发货',
+  PROCESSING: '处理中',
+  COMPLETED: '已完成',
+  CANCELLED: '已取消',
+}
+
+const router = useRouter()
 
 const loading = ref(false)
+const tableRef = ref()
 const rows = ref<CabinetShipOrderItem[]>([])
 const total = ref(0)
 const shipDialogVisible = ref(false)
@@ -89,6 +166,7 @@ const statusCount = reactive<Record<string, number>>({
 const pendingLabel = computed(() => (showCount.value ? `待发货(${statusCount[TAB_PENDING]})` : '待发货'))
 const shippedLabel = computed(() => (showCount.value ? `已发货(${statusCount[TAB_SHIPPED]})` : '已发货'))
 let fetchSeq = 0
+const detailStateMap = reactive<Record<string, { loading: boolean; loaded: boolean; error: string; items: CabinetShipOrderItemDetail[] }>>({})
 
 const query = reactive<CabinetShipOrderQueryRequest>({
   page: 1,
@@ -122,6 +200,84 @@ async function fetchData() {
       loading.value = false
     }
   }
+}
+
+function getStatusLabel(status?: string) {
+  if (!status) return '-'
+  return statusLabelMap[status] || `未知(${status})`
+}
+
+function getDetailState(shipOrderId: string) {
+  if (!detailStateMap[shipOrderId]) {
+    detailStateMap[shipOrderId] = { loading: false, loaded: false, error: '', items: [] }
+  }
+  return detailStateMap[shipOrderId]
+}
+
+async function ensureOrderDetail(shipOrderId: string, force = false) {
+  const state = getDetailState(shipOrderId)
+  if (state.loading) return
+  if (!force && state.loaded) return
+  state.loading = true
+  state.error = ''
+  try {
+    const { data } = await listCabinetShipOrderItems(shipOrderId)
+    state.items = Array.isArray(data) ? data : []
+    state.loaded = true
+  } catch {
+    state.error = '加载失败，请重试'
+  } finally {
+    state.loading = false
+  }
+}
+
+async function retryDetail(shipOrderId: string) {
+  await ensureOrderDetail(shipOrderId, true)
+}
+
+function handleRowClick(row: CabinetShipOrderItem) {
+  tableRef.value?.toggleRowExpansion(row)
+}
+
+function handleExpandChange(row: CabinetShipOrderItem, expandedRows: CabinetShipOrderItem[]) {
+  const expanded = expandedRows.some((item) => item.shipOrderId === row.shipOrderId)
+  if (expanded) {
+    void ensureOrderDetail(row.shipOrderId)
+  }
+}
+
+function formatCurrency(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '-'
+  }
+  return `¥${value.toFixed(2)}`
+}
+
+function getActivityText(item: CabinetShipOrderItemDetail) {
+  return item.activityName?.trim() || item.activityId?.trim() || '-'
+}
+
+function buildActivityKeyword(item: CabinetShipOrderItemDetail) {
+  return item.activityName?.trim() || item.activityId?.trim() || ''
+}
+
+function resolveGameplayPath(activityType?: string) {
+  if (activityType === 'ICHIBAN') {
+    return '/gameplay/ichiban'
+  }
+  if (activityType === 'UNLIMITED') {
+    return '/gameplay/unlimited'
+  }
+  return '/gameplay/gacha'
+}
+
+function goToActivity(item: CabinetShipOrderItemDetail) {
+  const keyword = buildActivityKeyword(item)
+  if (!keyword) return
+  router.push({
+    path: resolveGameplayPath(item.activityType),
+    query: { keyword },
+  })
 }
 
 async function fetchStatusCount() {
@@ -182,5 +338,9 @@ onMounted(async () => {
 
 .filter-form {
   margin-bottom: 16px;
+}
+
+.detail-panel {
+  padding: 8px 0;
 }
 </style>
