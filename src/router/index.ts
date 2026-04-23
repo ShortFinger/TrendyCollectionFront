@@ -69,6 +69,12 @@ const routes: RouteRecordRaw[] = [
             component: () => import('@/views/shipping/freight-rules/index.vue'),
             meta: { title: '发货规则' },
           },
+          {
+            path: 'cabinet-workbench',
+            name: 'ShippingCabinetWorkbench',
+            component: () => import('@/views/shipping/cabinet-ship-workbench.vue'),
+            meta: { title: '盒柜发货工作台' },
+          },
         ],
       },
       {
