@@ -12,9 +12,16 @@ export const useAuthStore = defineStore('auth', () => {
   const admin = ref<AdminVO | null>(null)
 
   async function login(username: string, password: string) {
-    const { data: keyData } = await getPublicKey()
+    const keyRes = await getPublicKey()
+    const keyData = keyRes?.data
+    const pem = keyData?.publicKey
+    if (!pem) {
+      throw new Error(
+        '无法获取登录公钥。部署环境请确认网关/反向代理已将路径 /admin-api 转发到管理端服务（TrendyCollectionAdmin），避免该路径落到前端静态资源的 SPA fallback。',
+      )
+    }
     const encrypt = new JSEncrypt()
-    encrypt.setPublicKey(keyData.publicKey)
+    encrypt.setPublicKey(pem)
     const encryptedPassword = encrypt.encrypt(password)
     if (!encryptedPassword) {
       throw new Error('密码加密失败')

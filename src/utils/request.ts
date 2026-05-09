@@ -23,6 +23,12 @@ request.interceptors.response.use(
       return response.data
     }
     const res = response.data
+    if (typeof res === 'string') {
+      ElMessage.error(
+        '接口返回异常内容（通常为 HTML）。请检查部署是否将 /admin-api、/order-admin-api 正确反向代理到后端，勿让这些路径命中前端 index.html。',
+      )
+      return Promise.reject(new Error('Non-JSON API response'))
+    }
     if (res.code !== undefined && res.code !== 0) {
       ElMessage.error(res.message || '请求失败')
       if (res.code === 401) {
