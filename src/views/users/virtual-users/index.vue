@@ -42,7 +42,6 @@
         <el-table-column prop="scoreBalance" label="积分余额" width="90" />
         <el-table-column prop="luckyScore" label="欧气" width="72" />
         <el-table-column prop="mithrilBalance" label="秘银" width="72" />
-        <el-table-column prop="profileSource" label="来源" width="88" />
         <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">

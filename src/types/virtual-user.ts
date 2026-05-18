@@ -7,7 +7,6 @@ export interface VirtualUserVO {
   gender?: number | null
   tags?: string | null
   status: number
-  profileSource?: string | null
   paidMoneyTotal: number
   scoreBalance: number
   scoreTotalEarned: number
@@ -33,7 +32,6 @@ export interface VirtualUserCreateBody {
   gender?: number
   tags?: string
   status?: number
-  profileSource?: string
   paidMoneyTotal?: number
   scoreBalance?: number
   scoreTotalEarned?: number
